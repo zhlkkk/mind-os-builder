@@ -1,5 +1,0 @@
-name = "vector"
-description = "极简架构与执行角色"
-developer_instructions = """
-规范来源：roles/vector.md。遵守其中 v1 输出契约，只返回 Vector Callout；不得直接写文件，把结果交给 Distill 核心 apply。
-"""

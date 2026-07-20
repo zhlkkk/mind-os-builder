@@ -27,6 +27,32 @@ mindos = "mind_os_builder.cli.main:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/mind_os_builder"]
 
+[tool.hatch.build.targets.wheel.force-include]
+".agents/skills" = "mind_os_builder/_bundle/skills"
+"agents" = "mind_os_builder/_bundle/agents"
+"adapters" = "mind_os_builder/_bundle/adapters"
+"jobs" = "mind_os_builder/_bundle/jobs"
+"data" = "mind_os_builder/_bundle/data"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/.agents",
+  "/AGENTS.md",
+  "/adapters",
+  "/agents",
+  "/data",
+  "/docs",
+  "/examples",
+  "/jobs",
+  "/scripts",
+  "/src",
+  "/tests",
+  "/LICENSE",
+  "/README.md",
+  "/pyproject.toml",
+  "/uv.lock",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]

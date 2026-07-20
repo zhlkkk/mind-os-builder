@@ -6,7 +6,7 @@
 
 任意运行层都可以读取 Job Catalog，再把 `action` 交给自己的 Command Registry。项目自带的 `JobRunner` 是同步参考实现，不解析 cron，也不负责安装系统定时任务。默认模式来自 `default_mode`，所有写任务都应先 dry-run；显式传入 `apply=True` 才允许对应 command service 写入。
 
-同一 `concurrency_key` 的任务串行执行，不同键可以并行。键可以引用输入，例如 `vault:{root}:wiki`。运行层提供 `start`、`status`、`wait`、`cancel` 和 `resume`；运行中的 Python 函数不能被强制终止，所以取消仅保证尚未开始的任务，耗时 Provider 应自行实现协作式取消。
+同一 `concurrency_key` 的任务串行执行，不同键可以并行。键可以引用输入，例如 `vault:{root}:wiki`。参考运行层提供 `start`、`status`、`wait`、`cancel` 和 `resume`，但线程中的 Python 函数不能被强制终止：超时只改变对外状态，取消只保证尚未开始的任务，`close` 仍会等待已开始的函数结束。需要硬超时、跨进程恢复或强制取消时，外层工具必须采用进程隔离或自己的运行时；Job YAML 仍是双方共享的契约。
 
 ## 自适配
 

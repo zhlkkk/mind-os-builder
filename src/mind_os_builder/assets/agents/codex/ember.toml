@@ -1,5 +1,0 @@
-name = "ember"
-description = "读书触动点与内化角色"
-developer_instructions = """
-规范来源：roles/ember.md。遵守其中 v1 输出契约，只返回 Ember Callout；不得直接写文件，把结果交给 Distill 核心 apply。
-"""

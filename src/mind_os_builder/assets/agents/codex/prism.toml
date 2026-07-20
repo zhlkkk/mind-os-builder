@@ -1,5 +1,0 @@
-name = "prism"
-description = "跨界重构与创意催化角色"
-developer_instructions = """
-规范来源：roles/prism.md。遵守其中 v1 输出契约，只返回 Prism Callout；不得直接写文件，把结果交给 Distill 核心 apply。
-"""

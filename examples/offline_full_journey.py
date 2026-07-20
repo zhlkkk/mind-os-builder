@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-from importlib.resources import as_file, files
+from importlib.resources import as_file
 import json
 from pathlib import Path
 from typing import Sequence
@@ -12,6 +12,7 @@ from mind_os_builder.collect.filters.rules import FilterConfig
 from mind_os_builder.collect.pipeline import CollectPipeline
 from mind_os_builder.collect.providers.rss_feed import RssFeedProvider
 from mind_os_builder.collect.providers.twitter_fixture import TwitterFixtureProvider
+from mind_os_builder.core.resources import resource_tree
 from mind_os_builder.distill.apply import apply_responses
 from mind_os_builder.distill.dispatch import dispatch_waves
 from mind_os_builder.distill.models import Persona, RoleOutput
@@ -129,7 +130,7 @@ def run(vault: Path) -> dict[str, object]:
     finally:
         jobs.close()
 
-    fixture = files("mind_os_builder.assets").joinpath("vault/collect/fixtures/twitter.json")
+    fixture = resource_tree("data").joinpath("collect/fixtures/twitter.json")
     with as_file(fixture) as fixture_path:
         twitter = CollectPipeline(
             vault,

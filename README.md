@@ -2,7 +2,35 @@
 
 一套从空目录构建本地个人知识操作系统的方法、契约与参考实现。
 
-项目公开可复用的构建过程，不包含任何人的私人知识库。核心能力通过 `mindos` CLI 提供，MCP、Agent Skills、自定义 Agent 和声明式 Job 都建立在同一领域契约上。
+项目公开可复用的构建过程，不包含任何人的私人知识库。仓库本身就是可读、可复制的系统骨架；Claude Code、Codex、Pi、Hermes、OpenClaw、WorkBuddy 等外层 Agent 只负责理解和调用它。
+
+## 一眼看懂仓库
+
+```text
+.agents/skills/   开放 Agent Skills，仓库中的规范源
+agents/           客户端中立的自定义 Agent 与角色契约
+adapters/         各 Agent 宿主的接入示例，不放业务逻辑
+data/             初始化模板、合成示例与默认配置
+docs/             从零教程、方法和架构说明
+jobs/             lint、distill、radar、采集等声明式任务
+scripts/          安装、审计和验证脚本
+src/              mindos CLI、MCP 与确定性领域实现
+tests/            单元、契约、集成和完整旅程测试
+```
+
+这里使用标准化程度更高的复数目录 `.agents/skills/`，不是 `.agent/skills/`。顶层目录是唯一规范源；构建 wheel 时会把同一份资源带入安装包，不在 `src/` 里维护第二份副本。
+
+## 两种安装方式
+
+安装 CLI：
+
+```bash
+git clone MIND_OS_BUILDER_REPO_URL mind-os-builder
+uv tool install ./mind-os-builder
+mindos doctor --json
+```
+
+或者复制 [交给 Agent 的安装指令](docs/install-with-agent.md)，让当前的 Claude Code、Codex、Pi、Hermes、OpenClaw 或 WorkBuddy 完成检查、CLI 安装和 Skill 接入。仓库尚未发布远程地址，因此文档保留 `<MIND_OS_BUILDER_REPO_URL>` 占位符，发布时再替换。
 
 ## 当前入口
 
@@ -24,4 +52,4 @@ uv run mindos job list --json
 - 所有写操作默认 dry-run；`--apply` 才会修改目标 vault。
 - 私人 vault、凭证和真实采集结果不进入本仓库；发布前执行 `uv run python scripts/audit_release.py .`。
 
-架构和安全边界分别见 [docs/architecture.md](docs/architecture.md) 与 [docs/security-and-privacy.md](docs/security-and-privacy.md)。
+目录契约、架构和安全边界分别见 [docs/directory-contract.md](docs/directory-contract.md)、[docs/architecture.md](docs/architecture.md) 与 [docs/security-and-privacy.md](docs/security-and-privacy.md)。

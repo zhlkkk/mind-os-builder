@@ -4,9 +4,9 @@ Mind OS Builder 的确定性业务能力只实现一次：应用层 Action 返�
 
 ## Agent Skills
 
-随包发布的 Skills 位于 `mind_os_builder/assets/skills/`。每个 Skill 只使用开放 Agent Skills 元数据、客户端中立流程和 `mindos ... --json` 命令，不依赖特定客户端的工具名、权限语法或子代理接口。
+仓库中的规范 Skills 位于顶层 `.agents/skills/`。每个 Skill 只使用开放 Agent Skills 元数据、客户端中立流程和 `mindos ... --json` 命令，不依赖特定客户端的工具名、权限语法或子代理接口。
 
-安装 Skill 时复制完整目录，并确认环境中存在 Python 3.11+ 与 `mindos`。写操作必须先 dry-run，再由用户明确选择 `--apply`。
+安装 Skill 时复制完整目录，并确认环境中存在 Python 3.11+ 与 `mindos`。可用 `scripts/install_harness.py` 适配不同宿主的发现目录；默认只预演，`--apply` 才复制，且不会覆盖冲突目录。六种宿主的具体路径见 [adapters/](../adapters/README.md)。
 
 ## MCP stdio
 

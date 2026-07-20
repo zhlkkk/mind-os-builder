@@ -5,7 +5,8 @@ import yaml
 
 
 ROOT = Path(__file__).parents[2]
-AGENTS = ROOT / "src/mind_os_builder/assets/agents"
+AGENTS = ROOT / "agents"
+CODEX_AGENTS = ROOT / "adapters/codex/agents"
 ROLES = ("lumina", "prism", "vector", "nexus", "ember")
 
 
@@ -30,7 +31,7 @@ def test_markdown_roles_are_canonical_and_codex_files_are_adapters() -> None:
         assert contract["write_paths"] == []
         assert "只返回一个" in markdown.read_text(encoding="utf-8")
 
-        adapter = tomllib.loads((AGENTS / "codex" / f"{role}.toml").read_text(encoding="utf-8"))
+        adapter = tomllib.loads((CODEX_AGENTS / f"{role}.toml").read_text(encoding="utf-8"))
         assert adapter["name"] == role
-        assert f"roles/{role}.md" in adapter["developer_instructions"]
+        assert f"agents/roles/{role}.md" in adapter["developer_instructions"]
         assert "不得直接写文件" in adapter["developer_instructions"]

@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from importlib.resources import files
 from pathlib import Path
 
 import pytest
 import yaml
 
 from mind_os_builder.books.validate import validate_base_definition, validate_book_page
+from mind_os_builder.core.resources import resource_tree
 
 
 def _asset(relative: str) -> Path:
-    return Path(str(files("mind_os_builder.assets").joinpath("vault/books", relative)))
+    return Path(str(resource_tree("data").joinpath("books", relative)))
 
 
 def test_example_book_has_complete_frontmatter_and_ria_sections() -> None:

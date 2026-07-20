@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from importlib import resources
+from importlib.resources.abc import Traversable
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 import yaml
 
+from mind_os_builder.core.resources import resource_tree
 from mind_os_builder.jobs.models import JobDefinition, JobSchemaError
 
 
@@ -18,12 +19,18 @@ class JobCatalog:
         self._jobs = dict(jobs)
 
     @classmethod
-    def from_directory(cls, directory: Path) -> JobCatalog:
+    def _from_resources(
+        cls,
+        resources: Iterable[Traversable],
+        *,
+        kind: str,
+    ) -> JobCatalog:
         jobs: dict[str, JobDefinition] = {}
-        for path in sorted(directory.glob("*.yaml")):
-            payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+        for resource in resources:
+            payload: Any = yaml.safe_load(resource.read_text(encoding="utf-8"))
             if not isinstance(payload, Mapping):
-                raise JobSchemaError(f"job file must contain a mapping: {path}")
+                location = str(resource) if kind == "file" else resource.name
+                raise JobSchemaError(f"job {kind} must contain a mapping: {location}")
             job = JobDefinition.from_mapping(payload)
             if job.id in jobs:
                 raise JobSchemaError(f"duplicate job id: {job.id}")
@@ -31,20 +38,17 @@ class JobCatalog:
         return cls(jobs)
 
     @classmethod
+    def from_directory(cls, directory: Path) -> JobCatalog:
+        return cls._from_resources(sorted(directory.glob("*.yaml")), kind="file")
+
+    @classmethod
     def packaged(cls) -> JobCatalog:
-        directory = resources.files("mind_os_builder.assets").joinpath("jobs")
-        jobs: dict[str, JobDefinition] = {}
-        for resource in sorted(directory.iterdir(), key=lambda item: item.name):
-            if not resource.name.endswith(".yaml"):
-                continue
-            payload: Any = yaml.safe_load(resource.read_text(encoding="utf-8"))
-            if not isinstance(payload, Mapping):
-                raise JobSchemaError(f"job resource must contain a mapping: {resource.name}")
-            job = JobDefinition.from_mapping(payload)
-            if job.id in jobs:
-                raise JobSchemaError(f"duplicate job id: {job.id}")
-            jobs[job.id] = job
-        return cls(jobs)
+        directory = resource_tree("jobs")
+        resources = sorted(
+            (resource for resource in directory.iterdir() if resource.name.endswith(".yaml")),
+            key=lambda resource: resource.name,
+        )
+        return cls._from_resources(resources, kind="resource")
 
     def get(self, job_id: str) -> JobDefinition:
         try:

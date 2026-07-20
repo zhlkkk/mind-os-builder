@@ -10,9 +10,9 @@ CLI、MCP、Agent Skills 和 Job 都是同一 Action Registry 的适配入口。
 
 ## 动作
 
-1. 从 `mind_os_builder/assets/skills/` 复制所需 Skill 完整目录。
+1. 从顶层 `.agents/skills/` 复制所需 Skill 完整目录，或使用 `scripts/install_harness.py` 投影到宿主的发现目录。
 2. MCP 宿主启动时注入固定 vault 根目录和共享 `ActionDispatcher`。
-3. 自动任务读取 `mind_os_builder/assets/jobs/*.yaml`，或运行参考示例：
+3. 自动任务读取顶层 `jobs/*.yaml`，或运行参考示例：
 
 ```bash
 uv run mindos job list --json
@@ -22,6 +22,8 @@ uv run python examples/run_lint_job.py --vault ./my-mind-os --json
 ```
 
 Job 的 `schedule_hint` 只是提示。你可以使用已有 Agent、cron、launchd 或其他平台触发，也可以完全手动运行；项目不要求安装任何调度器。
+
+Claude Code、Codex、Pi、Hermes、OpenClaw 与 WorkBuddy 的安装命令和原生路径见 [Agent 宿主适配目录](../../adapters/README.md)。也可以直接把 [安装指令](../install-with-agent.md) 交给当前 Agent。
 
 需要 MCP 时，以固定 vault 根目录启动 stdio：
 

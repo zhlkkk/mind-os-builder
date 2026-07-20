@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from importlib.resources import files
 from pathlib import Path
 
+from mind_os_builder.core.resources import resource_files, resource_tree
 from mind_os_builder.core.results import RunEnvelope, RunStatus
 from mind_os_builder.core.write_guard import PathViolation, WriteGuard
 
 
 TASK = "books.init"
-ASSET_ROOT = "vault/books"
 INDEX_RELATIVE = Path("wiki/index.md")
 LOG_RELATIVE = Path("wiki/log.md")
 INDEX_ENTRY = "- [[example-book]] — Book Base 与 RIA 示例"
@@ -16,18 +15,11 @@ LOG_ENTRY = "- 安装 Book Base 与 RIA 示例。"
 
 
 def _assets() -> dict[Path, str]:
-    root = files("mind_os_builder.assets").joinpath(ASSET_ROOT)
-    assets: dict[Path, str] = {}
-
-    def visit(item: object, relative: Path) -> None:
-        if item.is_file():  # type: ignore[attr-defined]
-            assets[relative] = item.read_text(encoding="utf-8")  # type: ignore[attr-defined]
-            return
-        for child in item.iterdir():  # type: ignore[attr-defined]
-            visit(child, relative / child.name)
-
-    visit(root, Path())
-    return assets
+    root = resource_tree("data").joinpath("books")
+    return {
+        relative: resource.read_text(encoding="utf-8")
+        for relative, resource in resource_files(root)
+    }
 
 
 def initialize_books(vault_root: Path, *, apply: bool = False) -> RunEnvelope:

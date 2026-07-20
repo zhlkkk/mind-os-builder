@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 
 
-SKILLS_ROOT = Path("src/mind_os_builder/assets/skills")
+SKILLS_ROOT = Path(".agents/skills")
 EXPECTED_SKILLS = {
     "mind-os",
     "wiki-ingest",

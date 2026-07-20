@@ -4,10 +4,10 @@ import hashlib
 import os
 import shutil
 import tempfile
-from importlib.resources import files
 from pathlib import Path
 
 from mind_os_builder.core.locks import FileLock
+from mind_os_builder.core.resources import resource_files, resource_tree
 from mind_os_builder.core.results import RunEnvelope, RunStatus
 
 
@@ -24,19 +24,11 @@ DIRECTORIES = (
 
 
 def _asset_files() -> dict[str, bytes]:
-    root = files("mind_os_builder.assets").joinpath("vault/core")
-    result: dict[str, bytes] = {}
-    for item in root.iterdir():
-        if item.is_file():
-            result[item.name] = item.read_bytes()
-        elif item.name == "wiki":
-            for child in item.iterdir():
-                if child.is_file():
-                    result[f"wiki/{child.name}"] = child.read_bytes()
-                else:
-                    for page in child.iterdir():
-                        result[f"wiki/{child.name}/{page.name}"] = page.read_bytes()
-    return result
+    root = resource_tree("data").joinpath("core")
+    return {
+        relative.as_posix(): resource.read_bytes()
+        for relative, resource in resource_files(root)
+    }
 
 
 def _matches(target: Path, assets: dict[str, bytes]) -> bool:

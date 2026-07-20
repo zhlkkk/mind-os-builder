@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -17,6 +18,14 @@ CALLOUTS = {
     "vector": "> [!quote] 🔨 Vector (10:22)\n> - [ ] 完成一个可验证动作。",
     "nexus": "> [!info] 🌐 Nexus (10:23)\n> 合成资料显示需要继续核查证据。",
     "ember": "> [!quote] 🔥 Ember (10:24)\n> 这段触动与全书主题形成连接。",
+}
+
+RESOURCE_TREES = {
+    "skills": Path(".agents/skills"),
+    "agents": Path("agents"),
+    "adapters": Path("adapters"),
+    "jobs": Path("jobs"),
+    "data": Path("data"),
 }
 
 
@@ -63,6 +72,13 @@ def _json(command: list[str], *, cwd: Path) -> dict[str, object]:
     return payload
 
 
+def _resource_manifest(root: Path) -> dict[str, str]:
+    return {
+        path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(candidate for candidate in root.rglob("*") if candidate.is_file())
+    }
+
+
 def test_wheel_install_runs_the_complete_offline_journey(tmp_path: Path) -> None:
     repository = Path(__file__).resolve().parents[2]
     distribution = tmp_path / "dist"
@@ -86,6 +102,36 @@ def test_wheel_install_runs_the_complete_offline_journey(tmp_path: Path) -> None
         capture_output=True,
         text=True,
     )
+    resource_probe = subprocess.run(
+        [
+            str(python),
+            "-c",
+            (
+                "import hashlib, json\n"
+                "from mind_os_builder.core.resources import resource_files, resource_tree\n"
+                f"names = {tuple(RESOURCE_TREES)!r}\n"
+                "manifest = {\n"
+                "    name: {\n"
+                "        relative.as_posix(): hashlib.sha256(resource.read_bytes()).hexdigest()\n"
+                "        for relative, resource in resource_files(resource_tree(name))\n"
+                "    }\n"
+                "    for name in names\n"
+                "}\n"
+                "print(json.dumps(manifest, sort_keys=True))\n"
+            ),
+        ],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert resource_probe.returncode == 0, resource_probe.stderr
+    installed_manifest = json.loads(resource_probe.stdout)
+    expected_manifest = {
+        name: _resource_manifest(repository / relative)
+        for name, relative in RESOURCE_TREES.items()
+    }
+    assert installed_manifest == expected_manifest
 
     vault = tmp_path / "synthetic-vault"
     steps: dict[str, str] = {}
