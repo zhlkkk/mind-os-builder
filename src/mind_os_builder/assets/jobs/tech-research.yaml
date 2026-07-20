@@ -1,0 +1,18 @@
+api_version: mindos.dev/v1
+id: tech-research
+action: research.run
+inputs:
+  root: {required: true}
+  topic: {required: true}
+  mode: {default: search}
+outputs: [run-envelope, research-report]
+effects: [network:optional, write:research]
+default_mode: dry-run
+concurrency_key: "vault:{root}:research:{topic}"
+timeout_seconds: 900
+retry: {attempts: 1}
+success_statuses: [succeeded, partial]
+required_capabilities: [research]
+required_secrets: []
+schedule_hint: manual
+timezone: local

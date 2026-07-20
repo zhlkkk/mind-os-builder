@@ -1,0 +1,17 @@
+api_version: mindos.dev/v1
+id: collect-rss
+action: collect.rss
+inputs:
+  root: {required: true}
+  provider: {default: rss}
+outputs: [run-envelope, collection-brief]
+effects: [network:optional, write:raw]
+default_mode: dry-run
+concurrency_key: "vault:{root}:collect-rss"
+timeout_seconds: 300
+retry: {attempts: 2}
+success_statuses: [succeeded, partial]
+required_capabilities: [collect.read, raw.write]
+required_secrets: []
+schedule_hint: hourly
+timezone: local

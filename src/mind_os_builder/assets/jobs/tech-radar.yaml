@@ -1,0 +1,19 @@
+api_version: mindos.dev/v1
+id: tech-radar
+action: radar.review
+inputs:
+  root: {required: true}
+  pages: {required: false}
+  hub: {required: false}
+  today: {required: false}
+outputs: [run-envelope, radar-suggestions]
+effects: [read:wiki, write:wiki]
+default_mode: dry-run
+concurrency_key: "vault:{root}:wiki"
+timeout_seconds: 120
+retry: {attempts: 1}
+success_statuses: [succeeded]
+required_capabilities: [wiki.read, wiki.write]
+required_secrets: []
+schedule_hint: twice-monthly
+timezone: local
