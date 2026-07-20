@@ -10,22 +10,33 @@ class ResearchMode(str, Enum):
     DEEP = "deep"
 
 
+class ProviderStatus(str, Enum):
+    SUCCEEDED = "succeeded"
+    SKIPPED = "skipped"
+    FAILED = "failed"
+
+
 @dataclass(frozen=True, slots=True)
 class ResearchRequest:
     topic: str
     mode: ResearchMode = ResearchMode.STANDARD
     focus: str = ""
     requested_providers: tuple[str, ...] = ()
+    context: str = ""
 
 
 @dataclass(slots=True)
 class ProviderResult:
     name: str
-    ok: bool
+    status: ProviderStatus
     content: str
     citations: list[str] = field(default_factory=list)
     error: str | None = None
-    metadata: dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, object] = field(default_factory=dict)
+
+    @property
+    def ok(self) -> bool:
+        return self.status is ProviderStatus.SUCCEEDED
 
 
 @dataclass(frozen=True, slots=True)

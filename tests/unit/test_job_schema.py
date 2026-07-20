@@ -82,3 +82,5 @@ def test_packaged_job_inputs_match_dispatcher_contracts() -> None:
 
     assert catalog.get("collect-twitter").inputs["provider"]["default"] == "fixture"
     assert catalog.get("tech-research").inputs["mode"]["default"] == "standard"
+    assert catalog.get("tech-research").inputs["providers"]["default"] == "auto"
+    assert catalog.get("tech-research").required_secrets == ()

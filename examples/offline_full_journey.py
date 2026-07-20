@@ -20,7 +20,12 @@ from mind_os_builder.distill.scanner import scan_journal
 from mind_os_builder.jobs.catalog import JobCatalog
 from mind_os_builder.jobs.runner import CommandRegistry, JobRunner
 from mind_os_builder.radar.review import radar_command
-from mind_os_builder.research.models import ProviderResult, ResearchMode, ResearchRequest
+from mind_os_builder.research.models import (
+    ProviderResult,
+    ProviderStatus,
+    ResearchMode,
+    ResearchRequest,
+)
 from mind_os_builder.research.runner import ResearchRunner
 from mind_os_builder.wiki.init import initialize_vault
 
@@ -35,13 +40,12 @@ RSS_FIXTURE = b"""<?xml version="1.0"?>
 
 
 class OfflineResearchProvider:
-    name = "search"
-    capabilities = frozenset({"search"})
+    name = "tavily-search"
 
     def run(self, request: ResearchRequest) -> ProviderResult:
         return ProviderResult(
             self.name,
-            True,
+            ProviderStatus.SUCCEEDED,
             f"{request.topic} 的合成证据，仅用于验证离线流程。",
             citations=["https://example.invalid/research/evidence"],
         )

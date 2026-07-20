@@ -4,6 +4,8 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
+
 from mind_os_builder.application.dispatcher import dispatch_action
 
 
@@ -80,6 +82,61 @@ def test_dispatcher_reports_invalid_parameters_without_traceback(tmp_path: Path)
 
     assert result.status.value == "blocked"
     assert result.reason_code == "config_error"
+
+
+@pytest.mark.parametrize("raw_providers", ["", ",,", []])
+def test_dispatcher_rejects_empty_providers_before_provider_execution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    raw_providers: str | list[object],
+) -> None:
+    provider_calls: list[object] = []
+
+    class RecordingProvider:
+        name = "tavily-search"
+
+        def run(self, request: object) -> None:
+            provider_calls.append(request)
+            raise RuntimeError("Provider 不应执行")
+
+    monkeypatch.setattr(
+        "mind_os_builder.application.dispatcher.build_research_providers",
+        lambda _settings: [RecordingProvider()],
+    )
+
+    result = dispatch_action(
+        "research.run",
+        tmp_path,
+        {"topic": "MCP", "providers": raw_providers},
+        False,
+    )
+
+    assert result.status.value == "blocked"
+    assert result.reason_code == "config_error"
+    assert provider_calls == []
+
+
+def test_dispatcher_accepts_explicit_research_config_outside_vault(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    vault = tmp_path / "vault"
+    config = tmp_path / "external-config.yaml"
+    config.write_text("version: 1\nresearch: {}\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "mind_os_builder.application.dispatcher.build_research_providers",
+        lambda _settings: [],
+    )
+
+    result = dispatch_action(
+        "research.run",
+        vault,
+        {"topic": "MCP", "providers": "auto", "config": str(config)},
+        False,
+    )
+
+    assert result.status.value == "failed"
+    assert result.reason_code == "providers_unavailable"
 
 
 def test_distill_apply_requires_the_scanned_baseline(tmp_path: Path) -> None:

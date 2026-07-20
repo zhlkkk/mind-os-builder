@@ -4,6 +4,7 @@ from mind_os_builder.core.resources import resource_tree
 def test_source_data_tree_is_resolvable() -> None:
     root = resource_tree("data")
     assert root.joinpath("core/AGENTS.md").is_file()
+    assert root.joinpath("core/.mindos/config.yaml").is_file()
     assert root.joinpath("capabilities.yaml").is_file()
 
 

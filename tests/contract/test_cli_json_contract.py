@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from mind_os_builder.cli.main import _emit, main
+from mind_os_builder.cli.main import _emit, build_parser, main
 from mind_os_builder.core.results import RunEnvelope, RunStatus
 
 
@@ -100,3 +100,30 @@ tags: [test]
     queried = json.loads(capsys.readouterr().out)
     assert queried["task"] == "wiki.query"
     assert queried["metrics"]["match_count"] == 1
+
+
+def test_cli_exposes_real_research_provider_configuration() -> None:
+    args = build_parser().parse_args(
+        [
+            "research",
+            "run",
+            "/tmp/vault",
+            "MCP",
+            "--providers",
+            "tavily,exa,grok",
+            "--config",
+            "/tmp/research.yaml",
+            "--timeout",
+            "45",
+            "--tavily-research-wait",
+            "120",
+            "--tavily-poll-interval",
+            "3",
+        ]
+    )
+
+    assert args.providers == "tavily,exa,grok"
+    assert str(args.config) == "/tmp/research.yaml"
+    assert args.timeout == 45
+    assert args.tavily_research_wait == 120
+    assert args.tavily_poll_interval == 3

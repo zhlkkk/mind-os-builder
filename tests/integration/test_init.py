@@ -6,6 +6,7 @@ def test_init_empty_directory_then_noop(tmp_path) -> None:
     first = initialize_vault(target, apply=True)
     assert first.changed is True
     assert (target / "AGENTS.md").exists()
+    assert (target / ".mindos/config.yaml").exists()
     assert (target / "wiki/index.md").exists()
     second = initialize_vault(target, apply=True)
     assert second.changed is False

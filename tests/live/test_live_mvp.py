@@ -13,7 +13,8 @@ from mind_os_builder.collect.pipeline import CollectPipeline
 from mind_os_builder.collect.providers.rss_feed import RssFeedProvider
 from mind_os_builder.collect.providers.twitter_opencli import TwitterOpenCliProvider
 from mind_os_builder.research.models import ResearchMode, ResearchRequest
-from mind_os_builder.research.providers.http_json import HttpJsonProvider
+from mind_os_builder.research.config import load_research_settings
+from mind_os_builder.research.factory import build_research_providers
 from mind_os_builder.research.runner import ResearchRunner
 from mind_os_builder.wiki.init import initialize_vault
 
@@ -55,7 +56,7 @@ def test_live_mvp_uses_only_a_temporary_vault_and_writes_a_redacted_summary(
     assert rss.envelope.status.value in {"succeeded", "partial"}
 
     research = ResearchRunner(
-        [HttpJsonProvider(endpoint=_required_environment("MINDOS_RESEARCH_ENDPOINT"))]
+        build_research_providers(load_research_settings(vault))
     ).run(
         ResearchRequest("Agent 协议烟测", ResearchMode.QUICK),
         vault_root=vault,

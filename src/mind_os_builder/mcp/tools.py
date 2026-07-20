@@ -24,7 +24,15 @@ class ActionDispatcher(Protocol):
     ) -> RunEnvelope: ...
 
 
-_PATH_KEYS = {"path", "file", "root", "output_path", "target_path", "source_path"}
+_PATH_KEYS = {
+    "path",
+    "file",
+    "root",
+    "output_path",
+    "target_path",
+    "source_path",
+    "config",
+}
 _LOCAL_READ_PATH_KEYS = {"fixture_path"}
 
 
@@ -63,6 +71,11 @@ class ActionTools:
 
         normalized = dict(parameters or {})
         self._validate_parameters(normalized)
+        config_value = normalized.get("config")
+        if isinstance(config_value, (str, Path)):
+            requested = Path(config_value).expanduser()
+            if not requested.is_absolute():
+                normalized["config"] = str((self._vault_root / requested).resolve())
         result = self._dispatcher(action, self._vault_root, normalized, apply)
         return result.to_dict()
 

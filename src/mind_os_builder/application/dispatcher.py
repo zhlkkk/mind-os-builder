@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from collections.abc import Callable
 from dataclasses import asdict, replace
 from pathlib import Path
@@ -23,8 +22,10 @@ from mind_os_builder.distill.scanner import scan_journal
 from mind_os_builder.jobs.catalog import JobCatalog
 from mind_os_builder.jobs.runner import CommandRegistry, JobRunner
 from mind_os_builder.radar.review import radar_command
+from mind_os_builder.research.config import load_research_settings
+from mind_os_builder.research.factory import build_research_providers
 from mind_os_builder.research.models import ResearchMode, ResearchRequest
-from mind_os_builder.research.providers.http_json import HttpJsonProvider
+from mind_os_builder.research.router import normalize_provider_names
 from mind_os_builder.research.runner import ResearchRunner
 from mind_os_builder.wiki.actions import WikiConflict, ingest_page, query_wiki
 
@@ -188,21 +189,55 @@ def _research(
     parameters: Mapping[str, Any],
     apply: bool,
 ) -> RunEnvelope:
-    trusted_endpoint = os.getenv("MINDOS_RESEARCH_ENDPOINT", "")
-    endpoint = str(parameters.get("endpoint") or trusted_endpoint)
-    if not endpoint:
-        raise ValueError("research.run 需要 endpoint 或 MINDOS_RESEARCH_ENDPOINT")
-    provider = HttpJsonProvider(
-        endpoint=endpoint,
-        trusted_endpoint=trusted_endpoint or None,
+    config_value = parameters.get("config")
+    settings = load_research_settings(
+        vault_root,
+        Path(str(config_value)) if config_value else None,
     )
+    if parameters.get("timeout") is not None:
+        timeout = float(parameters["timeout"])
+        if timeout <= 0:
+            raise ValueError("timeout 必须是正数")
+        settings = replace(settings, timeout_seconds=timeout)
+    if parameters.get("tavily_research_wait") is not None:
+        research_wait = float(parameters["tavily_research_wait"])
+        if research_wait <= 0:
+            raise ValueError("tavily_research_wait 必须是正数")
+        settings = replace(
+            settings,
+            tavily_research_wait_seconds=research_wait,
+        )
+    if parameters.get("tavily_poll_interval") is not None:
+        poll_interval = float(parameters["tavily_poll_interval"])
+        if poll_interval <= 0:
+            raise ValueError("tavily_poll_interval 必须是正数")
+        settings = replace(
+            settings,
+            tavily_poll_interval_seconds=poll_interval,
+        )
+    raw_providers = parameters.get("providers", "auto")
+    requested: tuple[str, ...]
+    if isinstance(raw_providers, str):
+        if raw_providers.strip().lower() == "auto":
+            requested = ()
+        else:
+            requested = normalize_provider_names(raw_providers.split(","))
+            if not requested:
+                raise ValueError("providers 显式列表不得为空")
+    elif isinstance(raw_providers, list):
+        requested = normalize_provider_names(str(item) for item in raw_providers)
+        if not requested:
+            raise ValueError("providers 显式列表不得为空")
+    else:
+        raise ValueError("providers 必须是 auto、逗号列表或数组")
     request = ResearchRequest(
         topic=str(parameters["topic"]),
         mode=ResearchMode(str(parameters.get("mode", "standard"))),
         focus=str(parameters.get("focus", "")),
-        requested_providers=tuple(str(item) for item in parameters.get("providers", [])),
+        requested_providers=requested,
     )
-    return ResearchRunner([provider]).run(request, vault_root=vault_root, apply=apply)
+    providers = build_research_providers(settings)
+    return ResearchRunner(providers).run(request, vault_root=vault_root, apply=apply)
 
 
 def _run_job(

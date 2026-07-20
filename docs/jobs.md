@@ -13,3 +13,5 @@
 已有 Agent 工具无需采用参考 runner。它只需：加载并验证 YAML；按 Registry 绑定 `action`；尊重 `default_mode`、能力、密钥和并发键；把结果归一为 `RunEnvelope`。调度周期、凭证注入、进程隔离和通知机制均由用户选择的运行层决定。
 
 内置目录包含 lint、distill、tech-radar、Twitter/RSS 采集与 tech-research 六个 Job。`tech-radar` 接收 `pages` 或 `hub`，因此 Radar 拆成月度页面后无需修改执行代码。
+
+`tech-research` 保持按需触发，`schedule_hint` 为 `manual`。当前 Job 契约不能表达按 `providers` 选择的条件密钥，因此 `required_secrets` 为空；外层运行层只需为本次选择注入对应 Key，完整的 Provider 与 `key_env` 映射由初始化配置和 `docs/providers.md` 维护。Job 可以传 `config`、`timeout` 和 Tavily 轮询参数，仍由同一 `research.run` Action 加载、校验并执行。

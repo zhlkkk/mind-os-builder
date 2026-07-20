@@ -103,7 +103,11 @@ def build_parser() -> argparse.ArgumentParser:
     research_run.add_argument("topic")
     research_run.add_argument("--mode", choices=("quick", "standard", "deep"), default="standard")
     research_run.add_argument("--focus", default="")
-    research_run.add_argument("--endpoint")
+    research_run.add_argument("--providers", default="auto")
+    research_run.add_argument("--config", type=Path)
+    research_run.add_argument("--timeout", type=float)
+    research_run.add_argument("--tavily-research-wait", type=float)
+    research_run.add_argument("--tavily-poll-interval", type=float)
     research_run.add_argument("--apply", action="store_true")
     research_run.add_argument("--json", action="store_true")
     research_run.set_defaults(action="research.run")
@@ -172,7 +176,11 @@ def _parameters(args: argparse.Namespace) -> dict[str, Any]:
             "topic": args.topic,
             "mode": args.mode,
             "focus": args.focus,
-            "endpoint": args.endpoint,
+            "providers": args.providers,
+            "config": str(args.config) if args.config else None,
+            "timeout": args.timeout,
+            "tavily_research_wait": args.tavily_research_wait,
+            "tavily_poll_interval": args.tavily_poll_interval,
         }
     if action == "radar.review":
         hub = args.hub or (None if args.page else "wiki/concepts/tech-radar.md")

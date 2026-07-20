@@ -10,3 +10,5 @@ build/
 dist/
 *.egg-info/
 .mindos/
+!data/core/.mindos/
+!data/core/.mindos/config.yaml

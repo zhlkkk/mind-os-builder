@@ -5,7 +5,12 @@ inputs:
   root: {required: true}
   topic: {required: true}
   mode: {default: standard}
-  endpoint: {required: false}
+  focus: {default: ""}
+  providers: {default: auto}
+  config: {required: false}
+  timeout: {required: false}
+  tavily_research_wait: {required: false}
+  tavily_poll_interval: {required: false}
 outputs: [run-envelope, research-report]
 effects: [network:optional, write:research]
 default_mode: dry-run

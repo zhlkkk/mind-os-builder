@@ -59,6 +59,46 @@ def test_tool_parameters_cannot_escape_fixed_root(
         tools.call("wiki.lint", parameters=parameters)
 
 
+def test_mcp_research_config_cannot_escape_vault_with_parent_path(
+    tmp_path: Path,
+) -> None:
+    vault = tmp_path / "vault"
+    tools = ActionTools(vault_root=vault, dispatcher=_dispatcher)
+
+    with pytest.raises(AdapterSecurityError, match="vault"):
+        tools.call(
+            "research.run",
+            parameters={"topic": "MCP", "config": "../outside.yaml"},
+        )
+
+
+def test_mcp_research_config_cannot_use_absolute_path_outside_vault(
+    tmp_path: Path,
+) -> None:
+    vault = tmp_path / "vault"
+    tools = ActionTools(vault_root=vault, dispatcher=_dispatcher)
+
+    with pytest.raises(AdapterSecurityError, match="vault"):
+        tools.call(
+            "research.run",
+            parameters={"topic": "MCP", "config": str(tmp_path / "outside.yaml")},
+        )
+
+
+def test_mcp_research_config_resolves_relative_to_vault(tmp_path: Path) -> None:
+    vault = tmp_path / "vault"
+    tools = ActionTools(vault_root=vault, dispatcher=_dispatcher)
+
+    payload = tools.call(
+        "research.run",
+        parameters={"topic": "MCP", "config": ".mindos/config.yaml"},
+    )
+
+    assert payload["metrics"]["parameters"]["config"] == str(
+        (vault / ".mindos/config.yaml").resolve()
+    )
+
+
 def test_remote_mode_cannot_apply_writes(tmp_path: Path) -> None:
     tools = ActionTools(vault_root=tmp_path, dispatcher=_dispatcher, local_transport=False)
     with pytest.raises(AdapterSecurityError, match="远程"):

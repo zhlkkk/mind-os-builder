@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 import hashlib
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 from pathlib import Path
 import subprocess
-from threading import Thread
-from typing import Iterator
 import venv
 
 
@@ -27,39 +23,6 @@ RESOURCE_TREES = {
     "jobs": Path("jobs"),
     "data": Path("data"),
 }
-
-
-class _ResearchHandler(BaseHTTPRequestHandler):
-    def do_POST(self) -> None:  # noqa: N802
-        length = int(self.headers.get("Content-Length", "0"))
-        self.rfile.read(length)
-        body = json.dumps(
-            {
-                "content": "合成研究证据，仅用于离线验证。",
-                "citations": ["https://example.invalid/research/evidence"],
-            }
-        ).encode()
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def log_message(self, format: str, *args: object) -> None:
-        del format, args
-
-
-@contextmanager
-def _research_endpoint() -> Iterator[str]:
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _ResearchHandler)
-    thread = Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    try:
-        yield f"http://127.0.0.1:{server.server_port}/research"
-    finally:
-        server.shutdown()
-        server.server_close()
-        thread.join()
 
 
 def _json(command: list[str], *, cwd: Path) -> dict[str, object]:
@@ -198,16 +161,36 @@ def test_wheel_install_runs_the_complete_offline_journey(tmp_path: Path) -> None
         )["status"]
     )
 
-    with _research_endpoint() as endpoint:
-        steps["research"] = str(
-            _json(
-                [
-                    str(mindos), "research", "run", str(vault), "Agent 协议", "--mode",
-                    "quick", "--endpoint", endpoint, "--apply", "--json",
-                ],
-                cwd=tmp_path,
-            )["status"]
-        )
+    research_probe = subprocess.run(
+        [
+            str(python),
+            "-c",
+            (
+                "import json, sys\n"
+                "from pathlib import Path\n"
+                "from mind_os_builder.research.models import "
+                "ProviderResult, ProviderStatus, ResearchMode, ResearchRequest\n"
+                "from mind_os_builder.research.runner import ResearchRunner\n"
+                "class OfflineProvider:\n"
+                "    name = 'tavily-search'\n"
+                "    def run(self, request):\n"
+                "        return ProviderResult(self.name, ProviderStatus.SUCCEEDED, "
+                "'合成研究证据，仅用于离线验证。', "
+                "citations=['https://example.invalid/research/evidence'])\n"
+                "result = ResearchRunner([OfflineProvider()]).run(\n"
+                "    ResearchRequest('Agent 协议', ResearchMode.QUICK),\n"
+                "    vault_root=Path(sys.argv[1]), apply=True)\n"
+                "print(json.dumps(result.to_dict(), ensure_ascii=False))\n"
+            ),
+            str(vault),
+        ],
+        cwd=tmp_path,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert research_probe.returncode == 0, research_probe.stderr
+    steps["research"] = str(json.loads(research_probe.stdout)["status"])
 
     radar = vault / "wiki/concepts/synthetic-radar.md"
     radar.write_text(

@@ -43,6 +43,8 @@ uv run mindos wiki lint ./demo-vault --json
 uv run mindos job list --json
 ```
 
+初始化后的 `demo-vault/.mindos/config.yaml` 包含 Tech Research 的非秘密配置；Twitter/OpenCLI、RSS/Folo 和各 Research Provider 的安装、认证与 Key 均由用户预先完成，Builder 不自动接管。
+
 从 [零开始教程](docs/getting-started/00-overview.md) 继续搭建采集、Book Base、Distill、Tech Research、Radar、Agent Skills 与 MCP。
 
 ## 设计边界
