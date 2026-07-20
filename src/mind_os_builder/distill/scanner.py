@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import re
-from dataclasses import dataclass
 from pathlib import Path
 
+from mind_os_builder.distill._paragraphs import (
+    adjacent_callout_personas,
+    normalize_paragraph,
+    split_paragraphs,
+)
 from mind_os_builder.distill.models import (
     DistillPlan,
     DistillTrigger,
@@ -13,31 +17,16 @@ from mind_os_builder.distill.models import (
     Persona,
 )
 
-
-@dataclass(frozen=True, slots=True)
-class _Paragraph:
-    text: str
-    start: int
-    end: int
-
-
 _TAG_PATTERN = re.compile(
     r"#(?:(?P<book>book/(?P<book_slug>[\w-]+))|"
     r"(?P<persona>lumina|prism|vector|nexus|ember))(?![\w/-])"
 )
-_CALLOUT_HEADERS = {
-    Persona.LUMINA: re.compile(r"^[ \t]*> \[!quote\] 🌿 Lumina\b", re.MULTILINE),
-    Persona.PRISM: re.compile(r"^[ \t]*> \[!quote\] 🌌 Prism\b", re.MULTILINE),
-    Persona.VECTOR: re.compile(r"^[ \t]*> \[!quote\] 🔨 Vector\b", re.MULTILINE),
-    Persona.NEXUS: re.compile(r"^[ \t]*> \[!info\] 🌐 Nexus\b", re.MULTILINE),
-    Persona.EMBER: re.compile(r"^[ \t]*> \[!quote\] 🔥 Ember\b", re.MULTILINE),
-}
 
 
 def scan_journal(vault_root: Path, source_path: Path) -> DistillPlan:
     relative, target = _resolve_journal(vault_root, source_path)
     content = target.read_text(encoding="utf-8")
-    paragraphs = _split_paragraphs(content)
+    paragraphs = split_paragraphs(content)
     triggers: list[DistillTrigger] = []
     occurrences: dict[tuple[str, Persona], int] = {}
 
@@ -53,12 +42,13 @@ def scan_journal(vault_root: Path, source_path: Path) -> DistillPlan:
             if persona not in personas:
                 personas.append(persona)
 
+        normalized = normalize_paragraph(paragraph.text)
+        adjacent_personas = adjacent_callout_personas(paragraphs, index)
         for persona in personas:
-            normalized = _normalize(paragraph.text)
             occurrence_key = (normalized, persona)
             occurrence = occurrences.get(occurrence_key, 0)
             occurrences[occurrence_key] = occurrence + 1
-            if persona in _adjacent_callout_personas(paragraphs, index):
+            if persona in adjacent_personas:
                 continue
             trigger_id = _trigger_id(relative, normalized, persona, occurrence)
             concurrency_key = (
@@ -89,20 +79,6 @@ def scan_journal(vault_root: Path, source_path: Path) -> DistillPlan:
         triggers=tuple(triggers),
     )
 
-
-def _adjacent_callout_personas(
-    paragraphs: list[_Paragraph], paragraph_index: int
-) -> set[Persona]:
-    processed: set[Persona] = set()
-    for paragraph in paragraphs[paragraph_index + 1 :]:
-        if not paragraph.text.lstrip().startswith("> [!"):
-            break
-        for persona, pattern in _CALLOUT_HEADERS.items():
-            if pattern.search(paragraph.text):
-                processed.add(persona)
-    return processed
-
-
 def _resolve_journal(vault_root: Path, source_path: Path) -> tuple[Path, Path]:
     if source_path.is_absolute() or ".." in source_path.parts:
         raise InvalidJournalPath(f"journal path must be vault-relative: {source_path}")
@@ -117,21 +93,6 @@ def _resolve_journal(vault_root: Path, source_path: Path) -> tuple[Path, Path]:
     if not target.is_file():
         raise FileNotFoundError(target)
     return source_path, target
-
-
-def _split_paragraphs(content: str) -> list[_Paragraph]:
-    paragraphs: list[_Paragraph] = []
-    pattern = re.compile(r"(?ms)(?:\A|\n[ \t]*\n)(?P<text>[^\n].*?)(?=\n[ \t]*\n|\Z)")
-    for match in pattern.finditer(content):
-        text = match.group("text").rstrip("\n")
-        start = match.start("text")
-        paragraphs.append(_Paragraph(text=text, start=start, end=start + len(text)))
-    return paragraphs
-
-
-def _normalize(paragraph: str) -> str:
-    return "\n".join(line.rstrip() for line in paragraph.strip().splitlines())
-
 
 def _trigger_id(relative: Path, paragraph: str, persona: Persona, occurrence: int) -> str:
     payload = "\0".join(("v1", relative.as_posix(), paragraph, persona.value, str(occurrence)))

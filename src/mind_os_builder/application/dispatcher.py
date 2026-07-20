@@ -180,9 +180,8 @@ def _run_job(
         return invoke
 
     catalog = JobCatalog.packaged()
-    registry = CommandRegistry(
-        {catalog.get(item).action: service(catalog.get(item).action) for item in catalog.list_ids()}
-    )
+    actions = (catalog.get(item).action for item in catalog.list_ids())
+    registry = CommandRegistry({action: service(action) for action in actions})
     runner = JobRunner(catalog, registry)
     try:
         return runner.run(job_id, dict(raw_inputs), apply=apply)

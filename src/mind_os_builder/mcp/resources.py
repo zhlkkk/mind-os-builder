@@ -23,16 +23,16 @@ class ResourceCatalog:
         self._run_summary = dict(run_summary or {"status": "unavailable"})
 
     def read(self, uri: str) -> str:
-        documents: dict[str, object] = {
-            "mindos://capabilities": capability_manifest(),
-            "mindos://jobs": self._jobs,
-            "mindos://schemas/config": self._config_schema(),
-            "mindos://runs/latest": self._run_summary,
-        }
-        try:
-            payload = documents[uri]
-        except KeyError as error:
-            raise ValueError(f"未知 MCP resource：{uri}") from error
+        if uri == "mindos://capabilities":
+            payload: object = capability_manifest()
+        elif uri == "mindos://jobs":
+            payload = self._jobs
+        elif uri == "mindos://schemas/config":
+            payload = self._config_schema()
+        elif uri == "mindos://runs/latest":
+            payload = self._run_summary
+        else:
+            raise ValueError(f"未知 MCP resource：{uri}")
         return json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
     @staticmethod

@@ -8,6 +8,12 @@ from pathlib import Path
 
 from mind_os_builder.core.locks import FileLock
 from mind_os_builder.core.write_guard import WriteGuard
+from mind_os_builder.distill._paragraphs import (
+    Paragraph,
+    adjacent_callout_personas,
+    normalize_paragraph,
+    split_paragraphs,
+)
 from mind_os_builder.distill.idempotency import marker_for, was_applied
 from mind_os_builder.distill.models import (
     ApplyResult,
@@ -18,12 +24,6 @@ from mind_os_builder.distill.models import (
     InvalidRoleOutput,
     Persona,
     RoleOutput,
-)
-from mind_os_builder.distill.scanner import (
-    _Paragraph,
-    _adjacent_callout_personas,
-    _normalize,
-    _split_paragraphs,
 )
 
 
@@ -75,7 +75,7 @@ def _apply_under_lock(
         current_hash = hashlib.sha256(baseline_view.encode("utf-8")).hexdigest()
         if pending and current_hash != plan.baseline_hash:
             raise DistillConflict(f"journal baseline changed: {plan.source_path}")
-        paragraphs = _split_paragraphs(content)
+        paragraphs = split_paragraphs(content)
         trigger_by_id = {trigger.trigger_id: trigger for trigger in plan.triggers}
         insertions: list[tuple[int, int, str, str]] = []
         skipped: list[str] = []
@@ -88,7 +88,7 @@ def _apply_under_lock(
                 continue
             trigger = trigger_by_id[response.trigger_id]
             paragraph_index = _find_trigger_paragraph(paragraphs, trigger)
-            if response.persona in _adjacent_callout_personas(paragraphs, paragraph_index):
+            if response.persona in adjacent_callout_personas(paragraphs, paragraph_index):
                 skipped.append(response.trigger_id)
                 if response.persona is Persona.NEXUS:
                     warnings.append(
@@ -132,11 +132,11 @@ def _strip_known_role_callouts(content: str, plan: DistillPlan) -> str:
 
     expected: dict[str, set[Persona]] = {}
     for trigger in plan.triggers:
-        expected.setdefault(_normalize(trigger.paragraph), set()).add(trigger.persona)
-    paragraphs = _split_paragraphs(content)
+        expected.setdefault(normalize_paragraph(trigger.paragraph), set()).add(trigger.persona)
+    paragraphs = split_paragraphs(content)
     removals: list[tuple[int, int]] = []
     for index, paragraph in enumerate(paragraphs):
-        personas = expected.get(_normalize(paragraph.text))
+        personas = expected.get(normalize_paragraph(paragraph.text))
         if not personas:
             continue
         last_end: int | None = None
@@ -186,12 +186,12 @@ def _validate_callout(response: RoleOutput) -> None:
         raise InvalidRoleOutput("role output cannot forge an idempotency marker")
 
 
-def _find_trigger_paragraph(paragraphs: list[_Paragraph], trigger: DistillTrigger) -> int:
-    normalized = _normalize(trigger.paragraph)
+def _find_trigger_paragraph(paragraphs: list[Paragraph], trigger: DistillTrigger) -> int:
+    normalized = normalize_paragraph(trigger.paragraph)
     matches = [
         index
         for index, paragraph in enumerate(paragraphs)
-        if _normalize(paragraph.text) == normalized
+        if normalize_paragraph(paragraph.text) == normalized
     ]
     if trigger.paragraph_occurrence >= len(matches):
         raise DistillConflict(f"trigger paragraph changed: {trigger.trigger_id}")

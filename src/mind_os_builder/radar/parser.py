@@ -49,11 +49,7 @@ def resolve_pages(root: Path, config: RadarConfig) -> tuple[Path, ...]:
         hub_path = root / config.hub
         content = hub_path.read_text(encoding="utf-8")
         pages.extend(_resolve_link(config.hub, target) for target in WIKILINK_PATTERN.findall(content))
-    unique: list[Path] = []
-    for page in pages:
-        if page not in unique and (root / page).is_file():
-            unique.append(page)
-    return tuple(unique)
+    return tuple(page for page in dict.fromkeys(pages) if (root / page).is_file())
 
 
 def _source_date(match: re.Match[str], *, latest: date) -> date:

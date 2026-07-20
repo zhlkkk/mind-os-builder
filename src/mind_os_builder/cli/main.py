@@ -5,9 +5,7 @@ import json
 from pathlib import Path
 from typing import Any, Sequence
 
-from mind_os_builder.application.dispatcher import dispatch_action
 from mind_os_builder.core.results import RunEnvelope, RunStatus
-from mind_os_builder.jobs.catalog import JobCatalog
 
 
 def _emit(result: RunEnvelope, as_json: bool) -> int:
@@ -166,6 +164,8 @@ def _parameters(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _emit_catalog(args: argparse.Namespace) -> int:
+    from mind_os_builder.jobs.catalog import JobCatalog
+
     catalog = JobCatalog.packaged()
     if args.job_command == "list":
         payload: dict[str, Any] = {"api_version": "v1", "jobs": list(catalog.list_ids())}
@@ -185,6 +185,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "job" and args.job_command in {"list", "describe"}:
         return _emit_catalog(args)
     if args.command == "mcp":
+        from mind_os_builder.application.dispatcher import dispatch_action
+        from mind_os_builder.jobs.catalog import JobCatalog
         from mind_os_builder.mcp.server import create_server
 
         catalog = JobCatalog.packaged()
@@ -207,6 +209,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             ),
             as_json,
         )
+    from mind_os_builder.application.dispatcher import dispatch_action
+
     return _emit(dispatch_action(args.action, root, parameters, apply), as_json)
 
 

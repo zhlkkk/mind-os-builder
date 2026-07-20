@@ -23,20 +23,19 @@ class FilterResult:
     counts: Mapping[str, int]
 
 
-def _matches(text: str, terms: Sequence[str]) -> list[str]:
-    return [term for term in terms if term.casefold() in text]
-
-
 def filter_signals(signals: Sequence[Signal], config: FilterConfig) -> FilterResult:
     candidates: list[tuple[Signal, int]] = []
     reasons: dict[str, tuple[str, ...]] = {}
     scores: dict[str, int] = {}
+    include_terms = tuple((term, term.casefold()) for term in config.include_any)
+    exclude_terms = tuple((term, term.casefold()) for term in config.exclude_any)
+    weighted_terms = tuple((term.casefold(), weight) for term, weight in config.weights.items())
 
     for signal in signals:
         text = signal.searchable_text()
-        include_matches = _matches(text, config.include_any)
-        exclude_matches = _matches(text, config.exclude_any)
-        score = sum(weight for term, weight in config.weights.items() if term.casefold() in text)
+        include_matches = [term for term, folded in include_terms if folded in text]
+        exclude_matches = [term for term, folded in exclude_terms if folded in text]
+        score = sum(weight for folded, weight in weighted_terms if folded in text)
         scores[signal.id] = score
         rejected: list[str] = []
         if exclude_matches:
