@@ -1,0 +1,51 @@
+filters:
+  and:
+    - file.folder == "wiki/books"
+    - file.ext == "md"
+    - file.name != "density-tracker"
+    - '!file.name.startsWith(".")'
+    - '!file.name.endsWith(".runtime")'
+formulas:
+  status_icon: 'if(status == "reading", "reading", if(status == "done", "done", "shelved"))'
+  days_reading: 'if(started, (today() - date(started)).days, "")'
+  days_to_finish: 'if(started && finished, (date(finished) - date(started)).days, "")'
+properties:
+  title:
+    displayName: 书名
+  author:
+    displayName: 作者
+  status:
+    displayName: 状态
+  themes:
+    displayName: 主题
+  started:
+    displayName: 开始
+  finished:
+    displayName: 完成
+  formula.days_reading:
+    displayName: 阅读天数
+  formula.days_to_finish:
+    displayName: 总天数
+views:
+  - type: cards
+    name: BookShelf
+    order: [file.name, author, formula.status_icon]
+    image: cover
+  - type: table
+    name: 正在读
+    filters:
+      and:
+        - status == "reading"
+    order: [file.name, author, started, formula.days_reading, themes]
+  - type: table
+    name: 已读完
+    filters:
+      and:
+        - status == "done"
+    order: [file.name, author, started, finished, formula.days_to_finish, themes]
+  - type: table
+    name: 待读清单
+    filters:
+      and:
+        - status == "shelved"
+    order: [file.name, author, themes]

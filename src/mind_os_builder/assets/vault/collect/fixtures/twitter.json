@@ -1,0 +1,19 @@
+{
+  "records": [
+    {
+      "id": "synthetic-post-1",
+      "title": "本地 Agent 工具发布可复现实验",
+      "text": "该合成条目包含基准方法、代码链接和迁移说明。",
+      "url": "https://example.invalid/twitter/synthetic-post-1",
+      "published": "2026-07-19T08:00:00Z"
+    },
+    {
+      "id": "synthetic-post-2",
+      "title": "缺少证据的收益故事",
+      "text": "该合成条目用于演示排除规则。",
+      "url": "https://example.invalid/twitter/synthetic-post-2",
+      "published": "2026-07-19T09:00:00Z"
+    }
+  ],
+  "next_cursor": "synthetic-post-2"
+}
