@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      MINDOS_RUN_LIVE: "0"
+    steps:
+      - uses: actions/checkout@v7
+      - name: 安装 Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: 安装 uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: "0.11.29"
+          enable-cache: true
+      - name: 安装锁定依赖
+        run: uv sync --frozen --extra dev
+      - name: 静态检查
+        run: |
+          uv run ruff check .
+          uv run mypy src
+      - name: 合成测试
+        run: uv run pytest -m "not live"
+      - name: 构建并审计发布物
+        run: |
+          uv build
+          uv run python scripts/audit_release.py

@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<rss version="2.0">
+  <channel>
+    <title>Synthetic feed</title>
+    <item>
+      <guid>example-rss-1</guid>
+      <title>RSS provider contract</title>
+      <description>A synthetic entry for offline verification.</description>
+      <link>https://example.invalid/rss/example-1</link>
+      <pubDate>Sun, 19 Jul 2026 08:00:00 GMT</pubDate>
+    </item>
+  </channel>
+</rss>

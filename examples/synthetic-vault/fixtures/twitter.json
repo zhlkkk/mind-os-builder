@@ -1,0 +1,12 @@
+{
+  "records": [
+    {
+      "id": "example-twitter-1",
+      "title": "Agent protocol benchmark",
+      "text": "A synthetic entry with code and repeatable measurements.",
+      "url": "https://example.invalid/twitter/example-1",
+      "published": "2026-07-19T08:00:00Z"
+    }
+  ],
+  "next_cursor": "example-twitter-1"
+}
