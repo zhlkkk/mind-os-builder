@@ -3,7 +3,8 @@ id: collect-twitter
 action: collect.twitter
 inputs:
   root: {required: true}
-  provider: {default: twitter-fixture}
+  provider: {default: fixture}
+  fixture_path: {required: true}
 outputs: [run-envelope, collection-brief]
 effects: [network:optional, write:raw]
 default_mode: dry-run

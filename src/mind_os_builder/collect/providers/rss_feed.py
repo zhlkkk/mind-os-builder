@@ -14,13 +14,23 @@ Fetcher = Callable[[str, float], bytes]
 
 
 def _safe_feed_label(url: str) -> str:
+    return _normalized_feed_identity(url)
+
+
+def _normalized_feed_identity(url: str) -> str:
     parsed = urlsplit(url)
-    hostname = parsed.hostname or "feed"
+    scheme = parsed.scheme.lower()
+    hostname = (parsed.hostname or "").lower()
     try:
-        port = f":{parsed.port}" if parsed.port is not None else ""
+        parsed_port = parsed.port
     except ValueError:
-        port = ""
-    return urlunsplit((parsed.scheme, hostname + port, parsed.path, "", ""))
+        parsed_port = None
+    default_port = (scheme == "http" and parsed_port == 80) or (
+        scheme == "https" and parsed_port == 443
+    )
+    port = f":{parsed_port}" if parsed_port is not None and not default_port else ""
+    path = parsed.path or "/"
+    return urlunsplit((scheme, hostname + port, path, "", ""))
 
 
 def _download(url: str, timeout: float) -> bytes:
@@ -124,6 +134,7 @@ class RssFeedProvider:
                 warnings.append(f"feed_invalid_xml:{_safe_feed_label(url)}")
                 continue
             for record in feed_records:
+                record["feed_identity"] = _normalized_feed_identity(url)
                 published = _parse_datetime(str(record.get("published") or ""))
                 if published is not None:
                     dates.append(published)

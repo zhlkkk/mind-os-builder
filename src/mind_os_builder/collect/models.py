@@ -64,7 +64,13 @@ def normalize_records(source: str, records: Iterable[Mapping[str, Any]]) -> list
         content = plain_text(record.get("content") or record.get("text") or record.get("summary"))
         url = str(record.get("url") or record.get("link") or "").strip()
         raw_id = str(record.get("id") or record.get("guid") or "").strip()
-        identity = raw_id or hashlib.sha256(f"{source}\0{url}\0{title}".encode()).hexdigest()[:24]
+        fallback_id = hashlib.sha256(f"{source}\0{url}\0{title}".encode()).hexdigest()[:24]
+        identity = raw_id or fallback_id
+        feed_identity = str(record.get("feed_identity") or "").strip()
+        if source == "rss" and feed_identity:
+            identity = hashlib.sha256(
+                f"rss\0{feed_identity}\0{identity}".encode()
+            ).hexdigest()[:24]
         known = {
             "id",
             "guid",

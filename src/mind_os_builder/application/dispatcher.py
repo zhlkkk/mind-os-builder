@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -17,6 +17,7 @@ from mind_os_builder.collect.providers.twitter_fixture import TwitterFixtureProv
 from mind_os_builder.collect.providers.twitter_opencli import TwitterOpenCliProvider
 from mind_os_builder.core.results import RunEnvelope, RunStatus
 from mind_os_builder.distill.apply import apply_responses
+from mind_os_builder.distill.idempotency import marker_for
 from mind_os_builder.distill.models import DistillConflict, InvalidRoleOutput, Persona, RoleOutput
 from mind_os_builder.distill.scanner import scan_journal
 from mind_os_builder.jobs.catalog import JobCatalog
@@ -25,6 +26,7 @@ from mind_os_builder.radar.review import radar_command
 from mind_os_builder.research.models import ResearchMode, ResearchRequest
 from mind_os_builder.research.providers.http_json import HttpJsonProvider
 from mind_os_builder.research.runner import ResearchRunner
+from mind_os_builder.wiki.actions import WikiConflict, ingest_page, query_wiki
 
 
 def _filters(parameters: Mapping[str, Any]) -> FilterConfig:
@@ -112,9 +114,6 @@ def _distill(
                 ],
             },
         )
-    expected_baseline = str(parameters["baseline_hash"])
-    if expected_baseline != plan.baseline_hash:
-        raise DistillConflict(f"journal baseline changed: {plan.source_path}")
     raw_responses = parameters.get("responses", [])
     if not isinstance(raw_responses, list):
         raise ValueError("responses 必须是数组")
@@ -127,6 +126,26 @@ def _distill(
         for item in raw_responses
         if isinstance(item, Mapping)
     ]
+    expected_baseline = str(parameters["baseline_hash"])
+    if expected_baseline != plan.baseline_hash:
+        if apply and _responses_already_applied(
+            root=vault_root, source=plan.source_path, responses=responses
+        ):
+            trigger_ids = [response.trigger_id for response in responses]
+            return RunEnvelope(
+                task=action,
+                status=RunStatus.SUCCEEDED,
+                reason_code="noop",
+                metrics={
+                    "dry_run": False,
+                    "planned_trigger_ids": trigger_ids,
+                    "applied_trigger_ids": [],
+                    "skipped_trigger_ids": trigger_ids,
+                },
+            )
+        if not apply:
+            raise DistillConflict(f"journal baseline changed: {plan.source_path}")
+        plan = replace(plan, baseline_hash=expected_baseline)
     result = apply_responses(vault_root, plan, responses, apply=apply)
     return RunEnvelope(
         task=action,
@@ -144,15 +163,39 @@ def _distill(
     )
 
 
+def _responses_already_applied(
+    *, root: Path, source: Path, responses: list[RoleOutput]
+) -> bool:
+    if not responses:
+        return False
+    content = (root / source).read_text(encoding="utf-8")
+    lines = content.splitlines()
+    for response in responses:
+        marker = marker_for(response.trigger_id)
+        marker_indexes = [index for index, line in enumerate(lines) if line.lstrip() == marker]
+        expected = response.callout.strip().splitlines()
+        if not any(
+            index >= len(expected)
+            and [line.lstrip() for line in lines[index - len(expected) : index]] == expected
+            for index in marker_indexes
+        ):
+            return False
+    return True
+
+
 def _research(
     vault_root: Path,
     parameters: Mapping[str, Any],
     apply: bool,
 ) -> RunEnvelope:
-    endpoint = str(parameters.get("endpoint") or os.getenv("MINDOS_RESEARCH_ENDPOINT", ""))
+    trusted_endpoint = os.getenv("MINDOS_RESEARCH_ENDPOINT", "")
+    endpoint = str(parameters.get("endpoint") or trusted_endpoint)
     if not endpoint:
         raise ValueError("research.run 需要 endpoint 或 MINDOS_RESEARCH_ENDPOINT")
-    provider = HttpJsonProvider(endpoint=endpoint)
+    provider = HttpJsonProvider(
+        endpoint=endpoint,
+        trusted_endpoint=trusted_endpoint or None,
+    )
     request = ResearchRequest(
         topic=str(parameters["topic"]),
         mode=ResearchMode(str(parameters.get("mode", "standard"))),
@@ -182,7 +225,7 @@ def _run_job(
     catalog = JobCatalog.packaged()
     actions = (catalog.get(item).action for item in catalog.list_ids())
     registry = CommandRegistry({action: service(action) for action in actions})
-    runner = JobRunner(catalog, registry)
+    runner = JobRunner(catalog, registry, fixed_inputs={"root": str(vault_root)})
     try:
         return runner.run(job_id, dict(raw_inputs), apply=apply)
     finally:
@@ -205,6 +248,24 @@ def dispatch_action(
             return init_command(root, apply=apply)
         if action == "wiki.lint":
             return lint_command(root)
+        if action == "wiki.ingest":
+            return ingest_page(
+                root,
+                str(parameters["path"]),
+                str(parameters["content"]),
+                expected_hash=(
+                    str(parameters["expected_hash"])
+                    if parameters.get("expected_hash") is not None
+                    else None
+                ),
+                apply=apply,
+            )
+        if action == "wiki.query":
+            return query_wiki(
+                root,
+                str(parameters["query"]),
+                limit=int(parameters.get("limit", 10)),
+            )
         if action == "books.init":
             return initialize_books(root, apply=apply)
         if action == "books.validate":
@@ -229,6 +290,8 @@ def dispatch_action(
         return RunEnvelope.blocked(action, "config_error", f"未知 Action：{action}")
     except DistillConflict:
         return RunEnvelope.blocked(action, "conflict", "日记在 scan 后发生变化，请重新扫描")
+    except WikiConflict:
+        return RunEnvelope.blocked(action, "conflict", "Wiki 页面在候选生成后发生变化，请重新读取")
     except InvalidRoleOutput:
         return RunEnvelope.blocked(action, "validation_error", "角色输出不符合 Distill 契约")
     except (KeyError, TypeError, ValueError, OSError):

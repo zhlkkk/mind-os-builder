@@ -17,6 +17,8 @@ ACTION_REGISTRY: dict[str, ActionSpec] = {
         ActionSpec("doctor", ("read",), "Inspect required and optional capabilities."),
         ActionSpec("wiki.init", ("workspace_write",), "Initialize a minimal LLM Wiki."),
         ActionSpec("wiki.lint", ("read",), "Check Wiki structure and links."),
+        ActionSpec("wiki.ingest", ("workspace_write",), "Commit a compiled Wiki page."),
+        ActionSpec("wiki.query", ("read",), "Search compiled Wiki pages."),
         ActionSpec("collect.twitter", ("network", "workspace_write"), "Collect Twitter signals."),
         ActionSpec("collect.rss", ("network", "workspace_write"), "Collect RSS/Atom signals."),
         ActionSpec("books.init", ("workspace_write",), "Install the RIA Book Base module."),

@@ -42,21 +42,27 @@ class ResearchRunner:
         resumed_results: Mapping[str, ProviderResult] | None = None,
     ) -> RunEnvelope:
         emit = progress or (lambda _event: None)
-        capabilities = {
-            capability
-            for provider in self.providers.values()
-            for capability in provider.capabilities
-        }
-        selected = select_providers(
-            request.mode,
-            capabilities,
-            request.requested_providers or None,
-        )
-        provider_names = [
-            provider.name
-            for provider in self.providers.values()
-            if provider.name in selected or provider.capabilities.intersection(selected)
-        ]
+        if request.requested_providers:
+            provider_names = list(dict.fromkeys(request.requested_providers))
+            unknown = [name for name in provider_names if name not in self.providers]
+            if unknown:
+                return RunEnvelope.blocked(
+                    "research.run",
+                    "config_error",
+                    f"未知 research provider：{', '.join(unknown)}",
+                )
+        else:
+            capabilities = {
+                capability
+                for provider in self.providers.values()
+                for capability in provider.capabilities
+            }
+            selected = select_providers(request.mode, capabilities)
+            provider_names = [
+                provider.name
+                for provider in self.providers.values()
+                if provider.capabilities.intersection(selected)
+            ]
         results: list[ProviderResult] = []
         resumed = resumed_results or {}
         for name in provider_names:

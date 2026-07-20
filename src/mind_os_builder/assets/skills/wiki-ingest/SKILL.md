@@ -6,10 +6,10 @@ compatibility: 需要 Python 3.11+、可用的 mindos CLI，以及调用方授�
 
 # Wiki Ingest
 
-1. 读取 vault 根目录的 `AGENTS.md`、`schema.md` 和 `wiki/index.md`。
+1. 先运行 `mindos wiki query <vault-root> "<主题>" --json`，并读取 vault 根目录的 `AGENTS.md` 与 `schema.md` 理解现有结构。
 2. 只处理用户明确指定的素材；保持一个概念一个页面，并使用完整 YAML frontmatter 和 `[[wikilinks]]`。
-3. 不修改 `raw/logseq-import/` 或 `wiki/insights/`。新增页面时同步更新 `wiki/index.md`，并把变更追加到 `wiki/log.md`。
-4. 写入前展示候选变更；只有用户明确确认后才使用调用方提供的本地文件能力提交。
+3. 把完整候选页面保存到临时文件；不得直接写 vault。页面路径只可位于 `wiki/concepts/`、`wiki/entities/` 或 `wiki/connections/`。
+4. 先运行 `mindos wiki ingest <vault-root> <页面路径> <候选文件> --json` 预演；只有用户明确确认后才追加 `--apply` 提交。更新已有页面时通过 `--expected-hash` 携带读取版本的 SHA-256。
 5. 运行 `mindos wiki lint <vault-root> --json`，根据结构化错误修复问题。
 
 不要假设任何特定 Agent 客户端、子代理 API 或权限语法存在。

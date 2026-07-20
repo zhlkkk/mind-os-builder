@@ -36,6 +36,20 @@ def build_parser() -> argparse.ArgumentParser:
     lint_parser.add_argument("root", type=Path)
     lint_parser.add_argument("--json", action="store_true")
     lint_parser.set_defaults(action="wiki.lint", apply=False)
+    ingest_parser = wiki.add_parser("ingest")
+    ingest_parser.add_argument("root", type=Path)
+    ingest_parser.add_argument("path")
+    ingest_parser.add_argument("content", type=Path)
+    ingest_parser.add_argument("--expected-hash")
+    ingest_parser.add_argument("--apply", action="store_true")
+    ingest_parser.add_argument("--json", action="store_true")
+    ingest_parser.set_defaults(action="wiki.ingest")
+    query_parser = wiki.add_parser("query")
+    query_parser.add_argument("root", type=Path)
+    query_parser.add_argument("query")
+    query_parser.add_argument("--limit", type=int, default=10)
+    query_parser.add_argument("--json", action="store_true")
+    query_parser.set_defaults(action="wiki.query", apply=False)
 
     books = commands.add_parser("books").add_subparsers(dest="books_command", required=True)
     books_init = books.add_parser("init")
@@ -126,6 +140,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _parameters(args: argparse.Namespace) -> dict[str, Any]:
     action = args.action
+    if action == "wiki.ingest":
+        return {
+            "path": args.path,
+            "content": args.content.read_text(encoding="utf-8"),
+            "expected_hash": args.expected_hash,
+        }
+    if action == "wiki.query":
+        return {"query": args.query, "limit": args.limit}
     if action == "collect.twitter":
         return {
             "provider": "opencli" if args.opencli else "fixture",

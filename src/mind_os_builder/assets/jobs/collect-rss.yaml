@@ -3,7 +3,7 @@ id: collect-rss
 action: collect.rss
 inputs:
   root: {required: true}
-  provider: {default: rss}
+  feeds: {required: true}
 outputs: [run-envelope, collection-brief]
 effects: [network:optional, write:raw]
 default_mode: dry-run

@@ -26,6 +26,18 @@ class LeakyProvider:
         raise RuntimeError("request failed with token=synthetic-secret")
 
 
+class NamedProvider:
+    capabilities = frozenset({"search"})
+
+    def __init__(self, name: str, calls: list[str]) -> None:
+        self.name = name
+        self._calls = calls
+
+    def run(self, request: ResearchRequest) -> ProviderResult:
+        self._calls.append(self.name)
+        return ProviderResult(self.name, True, f"{self.name}: {request.topic}")
+
+
 def test_partial_provider_failure_is_visible_and_report_can_promote(tmp_path) -> None:
     events: list[str] = []
     runner = ResearchRunner([GoodProvider(), BadProvider()])
@@ -61,3 +73,39 @@ def test_provider_exception_details_are_not_exposed(tmp_path) -> None:
     payload = str(result.to_dict()) + " ".join(events)
     assert "synthetic-secret" not in payload
     assert "provider execution failed" in payload
+
+
+def test_explicit_provider_names_are_selected_in_request_order(tmp_path) -> None:
+    calls: list[str] = []
+    runner = ResearchRunner(
+        [NamedProvider("first-api", calls), NamedProvider("second-api", calls)]
+    )
+
+    result = runner.run(
+        ResearchRequest(
+            "MCP",
+            ResearchMode.QUICK,
+            requested_providers=("second-api", "first-api"),
+        ),
+        vault_root=tmp_path,
+    )
+
+    assert result.status.value == "succeeded"
+    assert calls == ["second-api", "first-api"]
+
+
+def test_unknown_explicit_provider_returns_config_error(tmp_path) -> None:
+    calls: list[str] = []
+    result = ResearchRunner([NamedProvider("known-api", calls)]).run(
+        ResearchRequest(
+            "MCP",
+            ResearchMode.QUICK,
+            requested_providers=("missing-api",),
+        ),
+        vault_root=tmp_path,
+    )
+
+    assert result.status.value == "blocked"
+    assert result.reason_code == "config_error"
+    assert "missing-api" in result.errors[0]["message"]
+    assert calls == []

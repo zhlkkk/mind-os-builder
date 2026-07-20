@@ -56,3 +56,14 @@ def test_skill_relative_markdown_links_exist() -> None:
             resolved = (skill_file.parent / target).resolve()
             assert resolved.is_relative_to(skill_file.parent.resolve())
             assert resolved.exists(), f"{skill_file}: 缺少相对资源 {target}"
+
+
+def test_wiki_skills_delegate_reads_and_writes_to_shared_actions() -> None:
+    ingest = (SKILLS_ROOT / "wiki-ingest/SKILL.md").read_text(encoding="utf-8")
+    query = (SKILLS_ROOT / "wiki-query/SKILL.md").read_text(encoding="utf-8")
+
+    assert "mindos wiki ingest" in ingest
+    assert "mindos wiki query" in ingest
+    assert "不得直接写 vault" in ingest
+    assert "mindos wiki query" in query
+    assert "mindos wiki ingest" in query

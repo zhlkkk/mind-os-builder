@@ -15,9 +15,6 @@ MODE_ORDER = {
 def select_providers(
     mode: ResearchMode,
     available: Iterable[str],
-    requested: Iterable[str] | None = None,
 ) -> list[str]:
     available_set = set(available)
-    if requested:
-        return [name for name in requested if name in available_set]
     return [name for name in MODE_ORDER[mode] if name in available_set]

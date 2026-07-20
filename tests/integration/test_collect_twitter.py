@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+from datetime import date
 
 import pytest
 
@@ -168,7 +169,7 @@ def test_pipeline_dry_run_is_auditable_and_writes_nothing_to_vault(tmp_path) -> 
     assert not (tmp_path / "vault").exists()
 
 
-def test_pipeline_apply_merges_existing_brief_and_then_commits_cursor(tmp_path) -> None:
+def test_pipeline_merge_updates_metadata_and_idempotent_replay_changes_nothing(tmp_path) -> None:
     vault = tmp_path / "vault"
     output = vault / "raw/collect/twitter-brief.md"
     output.parent.mkdir(parents=True)
@@ -203,7 +204,15 @@ def test_pipeline_apply_merges_existing_brief_and_then_commits_cursor(tmp_path) 
     assert result.envelope.changed is True
     assert content.count("signal-id:old") == 1
     assert content.count("signal-id:new") == 1
+    assert "sources: 2" in content
+    assert "created: 2026-07-19" in content
+    assert f"updated: {date.today().isoformat()}" in content
     assert pipeline.cursor_store.get(provider.name) == "cursor-9"
+
+    replay = pipeline.run(output="raw/collect/twitter-brief.md", apply=True)
+
+    assert replay.envelope.changed is False
+    assert output.read_text() == content
 
 
 def test_pipeline_does_not_commit_cursor_when_validation_fails(tmp_path) -> None:

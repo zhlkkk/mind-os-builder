@@ -63,3 +63,22 @@ def test_packaged_jobs_only_reference_public_actions() -> None:
 
     for job_id in catalog.list_ids():
         assert catalog.get(job_id).action in ACTION_REGISTRY
+
+
+def test_packaged_job_inputs_match_dispatcher_contracts() -> None:
+    catalog = JobCatalog.packaged()
+
+    expected_required = {
+        "collect-rss": {"root", "feeds"},
+        "collect-twitter": {"root", "fixture_path"},
+        "distill": {"root", "source"},
+        "lint": {"root"},
+        "tech-radar": {"root"},
+        "tech-research": {"root", "topic"},
+    }
+    for job_id, required in expected_required.items():
+        inputs = catalog.get(job_id).inputs
+        assert {name for name, spec in inputs.items() if spec.get("required") is True} == required
+
+    assert catalog.get("collect-twitter").inputs["provider"]["default"] == "fixture"
+    assert catalog.get("tech-research").inputs["mode"]["default"] == "standard"

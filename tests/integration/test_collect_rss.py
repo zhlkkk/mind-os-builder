@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from mind_os_builder.collect.filters.rules import FilterConfig
+from mind_os_builder.collect.pipeline import CollectPipeline
 from mind_os_builder.collect.providers.rss_feed import RssFeedProvider
 
 
@@ -55,3 +57,33 @@ def test_rss_provider_reads_rss_and_atom_and_keeps_partial_success() -> None:
     assert batch.records[2]["url"] == "https://example.invalid/atom/1"
     assert batch.warnings == ("feed_timeout:https://example.invalid/slow.xml",)
     assert batch.next_cursor == "2026-07-19T09:00:00+00:00"
+
+
+def test_pipeline_keeps_same_guid_from_different_feeds_and_deduplicates_within_feed(
+    tmp_path,
+) -> None:
+    feed_a = b"""<?xml version="1.0"?>
+<rss version="2.0"><channel>
+  <item><guid>shared-guid</guid><title>Feed A entry</title>
+    <description>First copy.</description><link>https://a.example.invalid/entry</link></item>
+  <item><guid>shared-guid</guid><title>Feed A duplicate</title>
+    <description>Duplicate copy.</description><link>https://a.example.invalid/duplicate</link></item>
+</channel></rss>"""
+    feed_b = b"""<?xml version="1.0"?>
+<rss version="2.0"><channel>
+  <item><guid>shared-guid</guid><title>Feed B entry</title>
+    <description>Independent entry.</description><link>https://b.example.invalid/entry</link></item>
+</channel></rss>"""
+    responses = {
+        "https://a.example.invalid/feed.xml": feed_a,
+        "https://b.example.invalid/feed.xml": feed_b,
+    }
+    provider = RssFeedProvider(tuple(responses), fetcher=lambda url, _timeout: responses[url])
+    pipeline = CollectPipeline(tmp_path / "vault", provider, FilterConfig())
+
+    result = pipeline.run(output="raw/collect/rss-brief.md", apply=False)
+
+    assert result.report["stages"]["fetched"] == 3
+    assert result.report["stages"]["normalized"] == 2
+    assert {signal.title for signal in result.signals} == {"Feed A entry", "Feed B entry"}
+    assert len({signal.id for signal in result.signals}) == 2

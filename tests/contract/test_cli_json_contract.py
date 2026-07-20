@@ -61,3 +61,42 @@ def test_cli_exposes_books_and_job_catalog(tmp_path, capsys: pytest.CaptureFixtu
     assert main(["job", "list", "--json"]) == 0
     jobs = json.loads(capsys.readouterr().out)
     assert "collect-twitter" in jobs["jobs"]
+
+
+def test_cli_exposes_wiki_ingest_and_query(tmp_path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["wiki", "init", str(tmp_path), "--apply", "--json"]) == 0
+    capsys.readouterr()
+    candidate = tmp_path.parent / "candidate.md"
+    candidate.write_text(
+        """---
+domain: test
+sources: 1
+created: 2026-07-20
+updated: 2026-07-20
+tags: [test]
+---
+# CLI Contract
+
+通过统一 Action 写入。
+""",
+        encoding="utf-8",
+    )
+
+    assert main(
+        [
+            "wiki",
+            "ingest",
+            str(tmp_path),
+            "wiki/concepts/cli-contract.md",
+            str(candidate),
+            "--apply",
+            "--json",
+        ]
+    ) == 0
+    ingested = json.loads(capsys.readouterr().out)
+    assert ingested["task"] == "wiki.ingest"
+
+    assert main(["wiki", "query", str(tmp_path), "统一 Action", "--json"]) == 0
+    queried = json.loads(capsys.readouterr().out)
+    assert queried["task"] == "wiki.query"
+    assert queried["metrics"]["match_count"] == 1

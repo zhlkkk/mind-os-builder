@@ -4,7 +4,8 @@ action: research.run
 inputs:
   root: {required: true}
   topic: {required: true}
-  mode: {default: search}
+  mode: {default: standard}
+  endpoint: {required: false}
 outputs: [run-envelope, research-report]
 effects: [network:optional, write:research]
 default_mode: dry-run

@@ -7,6 +7,7 @@ import re
 from typing import Any, Mapping
 
 from mind_os_builder.core.results import RunEnvelope, RunStatus
+from mind_os_builder.core.read_guard import ReadBoundaryError, ReadGuard
 from mind_os_builder.core.write_guard import WriteGuard
 from mind_os_builder.radar.parser import RadarConfig, RadarSignal, load_signals
 
@@ -129,12 +130,13 @@ def _update_frontmatter(content: str, today: date) -> str:
 
 def apply_review(root: Path, report: RadarReport, *, today: date) -> RunEnvelope:
     guard = WriteGuard(root)
+    read_guard = ReadGuard(root)
     changed_pages: list[str] = []
     by_page: dict[Path, list[RadarSuggestion]] = {}
     for suggestion in report.actions:
         by_page.setdefault(suggestion.page, []).append(suggestion)
     for page, suggestions in by_page.items():
-        path = root / page
+        path = read_guard.resolve(page)
         content = path.read_text(encoding="utf-8")
         changed = False
         for suggestion in suggestions:
@@ -170,19 +172,30 @@ def apply_review(root: Path, report: RadarReport, *, today: date) -> RunEnvelope
 
 
 def radar_command(inputs: Mapping[str, Any]) -> RunEnvelope:
-    root = Path(str(inputs["root"]))
-    pages_value = inputs.get("pages", [])
-    pages = tuple(Path(str(item)) for item in pages_value) if isinstance(pages_value, list) else ()
-    hub_value = inputs.get("hub")
-    config = RadarConfig(pages=pages, hub=Path(str(hub_value)) if hub_value else None)
-    today_value = inputs.get("today")
-    today = date.fromisoformat(str(today_value)) if today_value else date.today()
-    report = review_radar(load_signals(root, config), today=today)
-    if bool(inputs.get("apply", False)):
-        return apply_review(root, report, today=today)
-    return RunEnvelope(
-        task="radar.review",
-        status=RunStatus.SUCCEEDED,
-        reason_code="dry_run",
-        metrics=report.to_dict(),
-    )
+    try:
+        root = Path(str(inputs["root"]))
+        pages_value = inputs.get("pages", [])
+        pages = (
+            tuple(Path(str(item)) for item in pages_value)
+            if isinstance(pages_value, list)
+            else ()
+        )
+        hub_value = inputs.get("hub")
+        config = RadarConfig(pages=pages, hub=Path(str(hub_value)) if hub_value else None)
+        today_value = inputs.get("today")
+        today = date.fromisoformat(str(today_value)) if today_value else date.today()
+        report = review_radar(load_signals(root, config), today=today)
+        if bool(inputs.get("apply", False)):
+            return apply_review(root, report, today=today)
+        return RunEnvelope(
+            task="radar.review",
+            status=RunStatus.SUCCEEDED,
+            reason_code="dry_run",
+            metrics=report.to_dict(),
+        )
+    except ReadBoundaryError:
+        return RunEnvelope.blocked(
+            "radar.review",
+            "path_violation",
+            "Radar 输入路径越出 vault 边界",
+        )

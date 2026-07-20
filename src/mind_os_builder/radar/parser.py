@@ -5,6 +5,8 @@ from datetime import date
 from pathlib import Path
 import re
 
+from mind_os_builder.core.read_guard import ReadGuard
+
 
 LEVEL_PATTERN = re.compile(r"^###\s+([🔴🟡🟢])[^\n]*$", re.MULTILINE)
 TITLE_PATTERN = re.compile(r"^\*\*([^*\n]+)\*\*\s*$", re.MULTILINE)
@@ -44,12 +46,19 @@ def _resolve_link(hub: Path, target: str) -> Path:
 
 
 def resolve_pages(root: Path, config: RadarConfig) -> tuple[Path, ...]:
-    pages = list(config.pages)
+    guard = ReadGuard(root)
+    pages = [guard.relative(page) for page in config.pages]
     if config.hub is not None:
-        hub_path = root / config.hub
+        hub = guard.relative(config.hub)
+        hub_path = guard.resolve(hub)
         content = hub_path.read_text(encoding="utf-8")
-        pages.extend(_resolve_link(config.hub, target) for target in WIKILINK_PATTERN.findall(content))
-    return tuple(page for page in dict.fromkeys(pages) if (root / page).is_file())
+        pages.extend(
+            guard.relative(_resolve_link(hub, target))
+            for target in WIKILINK_PATTERN.findall(content)
+        )
+    return tuple(
+        page for page in dict.fromkeys(pages) if guard.resolve(page).is_file()
+    )
 
 
 def _source_date(match: re.Match[str], *, latest: date) -> date:
@@ -94,7 +103,8 @@ def _parse_page(relative: Path, content: str) -> list[RadarSignal]:
 
 
 def load_signals(root: Path, config: RadarConfig) -> list[RadarSignal]:
+    guard = ReadGuard(root)
     signals: list[RadarSignal] = []
     for page in resolve_pages(root, config):
-        signals.extend(_parse_page(page, (root / page).read_text(encoding="utf-8")))
+        signals.extend(_parse_page(page, guard.resolve(page).read_text(encoding="utf-8")))
     return signals

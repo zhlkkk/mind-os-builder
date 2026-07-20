@@ -7,6 +7,8 @@ from typing import Any, Mapping
 
 import pytest
 
+from mind_os_builder.application.dispatcher import dispatch_action
+from mind_os_builder.cli.main import main
 from mind_os_builder.core.results import RunEnvelope, RunStatus
 from mind_os_builder.mcp.resources import ResourceCatalog
 from mind_os_builder.mcp.server import create_server
@@ -61,6 +63,95 @@ def test_remote_mode_cannot_apply_writes(tmp_path: Path) -> None:
     tools = ActionTools(vault_root=tmp_path, dispatcher=_dispatcher, local_transport=False)
     with pytest.raises(AdapterSecurityError, match="远程"):
         tools.call("wiki.init", parameters={}, apply=True)
+    with pytest.raises(AdapterSecurityError, match="远程"):
+        tools.call(
+            "wiki.ingest",
+            parameters={"path": "wiki/concepts/test.md", "content": "candidate"},
+            apply=True,
+        )
+    with pytest.raises(AdapterSecurityError, match="vault"):
+        tools.call(
+            "collect.twitter",
+            parameters={"provider": "fixture", "fixture_path": tmp_path.parent / "input.json"},
+        )
+
+
+def test_cli_and_local_mcp_accept_the_same_external_fixture(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    pytest.importorskip("mcp")
+    vault = tmp_path / "vault"
+    fixture = tmp_path / "inputs" / "twitter.json"
+    fixture.parent.mkdir()
+    fixture.write_text(
+        json.dumps(
+            {
+                "records": [
+                    {
+                        "id": "contract-1",
+                        "title": "Agent CLI",
+                        "text": "包含源码和基准测试。",
+                        "url": "https://example.invalid/contract-1",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    assert main(["wiki", "init", str(vault), "--apply", "--json"]) == 0
+    capsys.readouterr()
+
+    cli_parameters = [
+        "collect",
+        "twitter",
+        str(vault),
+        "--fixture",
+        str(fixture),
+        "--json",
+    ]
+    assert main(cli_parameters) == 0
+    cli_result = json.loads(capsys.readouterr().out)
+
+    server = create_server(vault_root=vault, dispatcher=dispatch_action)
+    mcp_result = asyncio.run(
+        server.call_tool(
+            "collect_twitter",
+            {
+                "parameters": {
+                    "provider": "fixture",
+                    "fixture_path": str(fixture),
+                    "output": "raw/twitter/twitter-brief.md",
+                }
+            },
+        )
+    )
+    assert isinstance(mcp_result, tuple)
+    _, structured = mcp_result
+
+    for key in ("task", "status", "reason_code", "changed", "artifacts", "metrics"):
+        assert structured[key] == cli_result[key]
+
+
+def test_external_fixture_does_not_relax_write_boundaries(tmp_path: Path) -> None:
+    vault = tmp_path / "vault"
+    fixture = tmp_path / "twitter.json"
+    fixture.write_text('{"records": []}', encoding="utf-8")
+    dispatch_action("wiki.init", vault, {}, True)
+    tools = ActionTools(vault_root=vault, dispatcher=dispatch_action)
+
+    result = tools.call(
+        "collect.twitter",
+        parameters={
+            "provider": "fixture",
+            "fixture_path": str(fixture),
+            "output": "../outside.md",
+        },
+        apply=True,
+    )
+
+    assert result["status"] == "failed"
+    assert result["reason_code"] == "promotion_failed"
+    assert not (tmp_path / "outside.md").exists()
 
 
 def test_resources_are_read_only_json_documents(tmp_path: Path) -> None:
@@ -93,3 +184,17 @@ def test_server_rejects_non_stdio_transport(tmp_path: Path) -> None:
             dispatcher=_dispatcher,
             transport="streamable-http",
         )
+
+
+def test_mcp_radar_path_violation_is_structured_and_sanitized(tmp_path: Path) -> None:
+    secret_name = "private-radar-secret.md"
+    tools = ActionTools(vault_root=tmp_path, dispatcher=dispatch_action)
+
+    payload = tools.call(
+        "radar.review",
+        parameters={"pages": [f"../{secret_name}"], "today": "2026-01-15"},
+    )
+
+    assert payload["status"] == "blocked"
+    assert payload["reason_code"] == "path_violation"
+    assert secret_name not in str(payload)

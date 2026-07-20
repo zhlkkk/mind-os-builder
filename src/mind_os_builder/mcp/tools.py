@@ -25,6 +25,7 @@ class ActionDispatcher(Protocol):
 
 
 _PATH_KEYS = {"path", "file", "root", "output_path", "target_path", "source_path"}
+_LOCAL_READ_PATH_KEYS = {"fixture_path"}
 
 
 class ActionTools:
@@ -77,6 +78,8 @@ class ActionTools:
                 self._validate_parameters(item, key=key)
             return
         if key is None or not self._is_path_key(key) or not isinstance(value, (str, Path)):
+            return
+        if self._local_transport and key in _LOCAL_READ_PATH_KEYS:
             return
 
         requested = Path(value).expanduser()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -66,7 +67,7 @@ def test_dispatcher_scans_distill_and_runs_declared_job(tmp_path: Path) -> None:
     job = dispatch_action(
         "job.run",
         vault,
-        {"job_id": "lint", "inputs": {"root": "."}},
+        {"job_id": "lint", "inputs": {}},
         False,
     )
 
@@ -109,3 +110,149 @@ def test_distill_apply_requires_the_scanned_baseline(tmp_path: Path) -> None:
 
     assert result.status.value == "blocked"
     assert result.reason_code == "conflict"
+
+
+def test_distill_apply_replays_the_same_response_as_noop(tmp_path: Path) -> None:
+    vault = _initialized_vault(tmp_path)
+    journal = vault / "journals/2026-07-20.md"
+    journal.write_text("今天需要沉淀这个判断。 #vector\n", encoding="utf-8")
+    scan = dispatch_action(
+        "distill.scan", vault, {"source": "journals/2026-07-20.md"}, False
+    )
+    trigger = scan.metrics["triggers"][0]
+    parameters = {
+        "source": "journals/2026-07-20.md",
+        "baseline_hash": scan.metrics["baseline_hash"],
+        "responses": [
+            {
+                "trigger_id": trigger["trigger_id"],
+                "persona": "vector",
+                "callout": "> [!quote] 🔨 Vector (10:20)\n> - [ ] 完成动作。",
+            }
+        ],
+    }
+
+    first = dispatch_action("distill.apply", vault, parameters, True)
+    first_content = journal.read_text(encoding="utf-8")
+    second = dispatch_action("distill.apply", vault, parameters, True)
+
+    assert first.status.value == "succeeded"
+    assert first.changed is True
+    assert second.status.value == "succeeded"
+    assert second.reason_code == "noop"
+    assert second.changed is False
+    assert journal.read_text(encoding="utf-8") == first_content
+    assert first_content.count("mindos:distill:") == 1
+
+
+def test_distill_apply_keeps_a_real_concurrent_change_as_conflict(tmp_path: Path) -> None:
+    vault = _initialized_vault(tmp_path)
+    journal = vault / "journals/2026-07-20.md"
+    journal.write_text("今天需要沉淀这个判断。 #vector\n", encoding="utf-8")
+    scan = dispatch_action(
+        "distill.scan", vault, {"source": "journals/2026-07-20.md"}, False
+    )
+    trigger = scan.metrics["triggers"][0]
+    journal.write_text(journal.read_text(encoding="utf-8") + "\n并发新增的人类内容。\n", encoding="utf-8")
+
+    result = dispatch_action(
+        "distill.apply",
+        vault,
+        {
+            "source": "journals/2026-07-20.md",
+            "baseline_hash": scan.metrics["baseline_hash"],
+            "responses": [
+                {
+                    "trigger_id": trigger["trigger_id"],
+                    "persona": "vector",
+                    "callout": "> [!quote] 🔨 Vector (10:20)\n> - [ ] 完成动作。",
+                }
+            ],
+        },
+        True,
+    )
+
+    assert result.status.value == "blocked"
+    assert result.reason_code == "conflict"
+    assert "mindos:distill:" not in journal.read_text(encoding="utf-8")
+
+
+def test_dispatcher_ingests_and_queries_a_wiki_page(tmp_path: Path) -> None:
+    vault = _initialized_vault(tmp_path)
+    content = """---
+domain: agents
+sources: 1
+created: 2026-07-20
+updated: 2026-07-20
+tags: [agents]
+---
+# Agent Harness
+
+确定性核心由适配器复用。
+"""
+
+    preview = dispatch_action(
+        "wiki.ingest",
+        vault,
+        {"path": "wiki/concepts/agent-harness.md", "content": content},
+        False,
+    )
+    assert not (vault / "wiki/concepts/agent-harness.md").exists()
+    applied = dispatch_action(
+        "wiki.ingest",
+        vault,
+        {"path": "wiki/concepts/agent-harness.md", "content": content},
+        True,
+    )
+    query = dispatch_action("wiki.query", vault, {"query": "确定性核心"}, False)
+
+    assert preview.reason_code == "dry_run"
+    assert applied.status.value == "succeeded"
+    assert "[[agent-harness]]" in (vault / "wiki/index.md").read_text(encoding="utf-8")
+    assert "[[agent-harness]]" in (vault / "wiki/log.md").read_text(encoding="utf-8")
+    assert query.status.value == "succeeded"
+    assert query.metrics["matches"][0]["path"] == "wiki/concepts/agent-harness.md"
+
+
+def test_wiki_ingest_requires_the_hash_when_updating(tmp_path: Path) -> None:
+    vault = _initialized_vault(tmp_path)
+    path = "wiki/concepts/welcome.md"
+    target = vault / path
+    original = target.read_text(encoding="utf-8")
+    updated = original.replace("欢迎使用 Mind OS", "欢迎使用可移植 Mind OS")
+
+    conflict = dispatch_action(
+        "wiki.ingest", vault, {"path": path, "content": updated}, True
+    )
+    applied = dispatch_action(
+        "wiki.ingest",
+        vault,
+        {
+            "path": path,
+            "content": updated,
+            "expected_hash": hashlib.sha256(original.encode()).hexdigest(),
+        },
+        True,
+    )
+    replay = dispatch_action(
+        "wiki.ingest", vault, {"path": path, "content": updated}, True
+    )
+
+    assert conflict.reason_code == "conflict"
+    assert applied.status.value == "succeeded"
+    assert replay.reason_code == "noop"
+    assert target.read_text(encoding="utf-8") == updated
+
+
+def test_wiki_ingest_rejects_human_only_and_history_paths(tmp_path: Path) -> None:
+    vault = _initialized_vault(tmp_path)
+
+    for path in ("wiki/insights/private.md", "raw/logseq-import/history.md"):
+        result = dispatch_action(
+            "wiki.ingest",
+            vault,
+            {"path": path, "content": "---\ndomain: x\n---\n"},
+            True,
+        )
+        assert result.status.value == "blocked"
+        assert not (vault / path).exists()

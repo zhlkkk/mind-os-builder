@@ -29,3 +29,22 @@ def test_packaged_radar_job_matches_direct_command(tmp_path: Path) -> None:
     assert via_job.status is RunStatus.SUCCEEDED
     assert via_job.metrics == direct.metrics
     assert page.read_text(encoding="utf-8").count("⬇️") == 0
+
+
+def test_packaged_radar_job_returns_sanitized_path_violation(tmp_path: Path) -> None:
+    secret_name = "private-radar-secret.md"
+    inputs: dict[str, Any] = {
+        "root": str(tmp_path),
+        "pages": [f"../{secret_name}"],
+        "today": "2026-01-15",
+    }
+    runner = JobRunner(
+        JobCatalog.packaged(), CommandRegistry({"radar.review": radar_command})
+    )
+
+    result = runner.run("tech-radar", inputs)
+    runner.close()
+
+    assert result.status is RunStatus.BLOCKED
+    assert result.reason_code == "path_violation"
+    assert secret_name not in str(result.to_dict())

@@ -15,7 +15,7 @@
 | 检查 | 命令 | 状态 | 证据 |
 |---|---|---|---|
 | wheel 完整旅程 | `uv run pytest tests/e2e/test_full_journey.py -q` | 已通过 | wheel 安装后完成 Wiki、采集、Books、五角色 Distill、Research、Radar、Job |
-| 非 live 测试 | `uv run pytest -m "not live"` | 已通过 | 109 passed、5 deselected，只使用合成夹具 |
+| 非 live 测试 | `uv run pytest -m "not live"` | 已通过 | 140 passed、5 deselected，只使用合成夹具 |
 | 静态质量 | `uv run ruff check . && uv run mypy src` | 已通过 | Ruff 无错误；65 个源码文件通过 mypy |
 | 构建 | `uv build` | 已通过 | wheel 与 sdist 构建成功，wheel 已用于隔离 E2E |
 | 发布审计 | `uv run python scripts/audit_release.py` | 已通过 | 无私人路径、凭证或未允许文件 |
@@ -31,7 +31,7 @@
 | Tech Research | 待执行 | Provider 成功/失败、引用数 | key、付费请求原文 |
 | Tech Radar | 离线 dry-run 已通过 | scanned/active/near/actions | 私人雷达标题和来源 |
 | Job 参考运行层 | 离线已通过 | Job ID、状态、run ID 是否存在 | 外部调度器凭证 |
-| MCP stdio | 已完成 | 12 tools、4 resources、`wiki_init` 成功 | 协议 stdout 原文、vault 内容 |
+| MCP stdio | 已完成 | 14 tools、4 resources、`wiki_init` 成功 | 协议 stdout 原文、vault 内容 |
 
 ## 真实执行步骤
 

@@ -13,6 +13,10 @@ from mind_os_builder.jobs.models import JobDefinition
 CommandService = Callable[[Mapping[str, Any]], RunEnvelope]
 
 
+class JobInputError(ValueError):
+    pass
+
+
 class CommandRegistry:
     def __init__(self, services: Mapping[str, CommandService]) -> None:
         self._services = dict(services)
@@ -40,9 +44,16 @@ class _FormatInputs(dict[str, Any]):
 class JobRunner:
     """可选同步参考运行层；调度器只需消费同一 Job 契约。"""
 
-    def __init__(self, catalog: JobCatalog, registry: CommandRegistry) -> None:
+    def __init__(
+        self,
+        catalog: JobCatalog,
+        registry: CommandRegistry,
+        *,
+        fixed_inputs: Mapping[str, Any] | None = None,
+    ) -> None:
         self.catalog = catalog
         self.registry = registry
+        self._fixed_inputs = dict(fixed_inputs or {})
         self._executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="mindos-job")
         self._state_lock = Lock()
         self._key_locks: dict[str, Lock] = {}
@@ -51,6 +62,26 @@ class JobRunner:
     def _lock_for(self, key: str) -> Lock:
         with self._state_lock:
             return self._key_locks.setdefault(key, Lock())
+
+    @staticmethod
+    def _materialize_inputs(job: JobDefinition, inputs: Mapping[str, Any]) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        missing: list[str] = []
+        for name, raw_spec in job.inputs.items():
+            if not isinstance(raw_spec, Mapping):
+                raise JobInputError(f"invalid input specification: {name}")
+            if name in inputs:
+                payload[name] = inputs[name]
+            elif "default" in raw_spec:
+                payload[name] = raw_spec["default"]
+            elif raw_spec.get("required") is True:
+                missing.append(name)
+        if missing:
+            names = ", ".join(missing)
+            raise JobInputError(f"missing required job inputs: {names}")
+        for name, value in inputs.items():
+            payload.setdefault(name, value)
+        return payload
 
     def _execute(self, job: JobDefinition, inputs: dict[str, Any]) -> RunEnvelope:
         service = self.registry.get(job.action)
@@ -67,7 +98,8 @@ class JobRunner:
     def start(self, job_id: str, inputs: Mapping[str, Any], *, apply: bool | None = None) -> str:
         job = self.catalog.get(job_id)
         self.registry.get(job.action)
-        payload = dict(inputs)
+        request = {**inputs, **self._fixed_inputs}
+        payload = self._materialize_inputs(job, request)
         payload["apply"] = job.default_mode == "apply" if apply is None else apply
         run_id = uuid4().hex
         queued = RunEnvelope(task=f"job.{job_id}", status=RunStatus.QUEUED, run_id=run_id)
@@ -104,7 +136,7 @@ class JobRunner:
     def run(self, job_id: str, inputs: Mapping[str, Any], *, apply: bool | None = None) -> RunEnvelope:
         try:
             run_id = self.start(job_id, inputs, apply=apply)
-        except (UnknownJobError, LookupError) as exc:
+        except (UnknownJobError, LookupError, JobInputError) as exc:
             return RunEnvelope.blocked(f"job.{job_id}", "config_error", str(exc))
         return self.wait(run_id)
 

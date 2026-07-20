@@ -1,8 +1,11 @@
 from datetime import date
 from pathlib import Path
 
+import pytest
+
+from mind_os_builder.core.read_guard import ReadBoundaryError
 from mind_os_builder.radar.parser import RadarConfig, load_signals
-from mind_os_builder.radar.review import apply_review, review_radar
+from mind_os_builder.radar.review import apply_review, radar_command, review_radar
 
 
 def _page(signals: str, *, updated: str = "2026-01-01") -> str:
@@ -88,6 +91,56 @@ def test_hub_configuration_locates_split_monthly_pages(tmp_path: Path) -> None:
     signals = load_signals(tmp_path, RadarConfig(hub=Path("wiki/radar/index.md")))
 
     assert {signal.title for signal in signals} == {"一月", "二月"}
+
+
+def test_hub_wikilink_cannot_escape_the_vault(tmp_path: Path) -> None:
+    radar_dir = tmp_path / "wiki" / "radar"
+    radar_dir.mkdir(parents=True)
+    (radar_dir / "index.md").write_text(
+        "# Radar\n- [[../../../outside-radar]]\n", encoding="utf-8"
+    )
+
+    with pytest.raises(ReadBoundaryError, match="workspace boundary"):
+        load_signals(tmp_path, RadarConfig(hub=Path("wiki/radar/index.md")))
+
+    result = radar_command(
+        {"root": str(tmp_path), "hub": "wiki/radar/index.md", "apply": False}
+    )
+    assert result.status.value == "blocked"
+    assert result.reason_code == "path_violation"
+    assert "outside-radar" not in str(result.to_dict())
+
+
+@pytest.mark.parametrize(
+    "inputs",
+    [
+        {"pages": ["../private-radar-secret.md"]},
+        {"pages": ["/tmp/private-radar-secret.md"]},
+        {"hub": "../private-radar-secret.md"},
+    ],
+)
+def test_radar_command_returns_structured_path_violations(
+    tmp_path: Path, inputs: dict[str, object]
+) -> None:
+    result = radar_command({"root": str(tmp_path), **inputs})
+
+    assert result.status.value == "blocked"
+    assert result.reason_code == "path_violation"
+    assert "private-radar-secret" not in str(result.to_dict())
+
+
+def test_radar_command_rejects_a_page_symlink_escape(tmp_path: Path) -> None:
+    outside = tmp_path.parent / "private-radar-secret.md"
+    outside.write_text(_page(""), encoding="utf-8")
+    link = tmp_path / "wiki/radar.md"
+    link.parent.mkdir()
+    link.symlink_to(outside)
+
+    result = radar_command({"root": str(tmp_path), "pages": ["wiki/radar.md"]})
+
+    assert result.status.value == "blocked"
+    assert result.reason_code == "path_violation"
+    assert "private-radar-secret" not in str(result.to_dict())
 
 
 def test_dry_run_is_zero_write_and_apply_is_idempotent(tmp_path: Path) -> None:
