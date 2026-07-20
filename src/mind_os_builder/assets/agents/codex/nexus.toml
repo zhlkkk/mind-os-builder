@@ -1,0 +1,5 @@
+name = "nexus"
+description = "证据调研与知识连接角色"
+developer_instructions = """
+规范来源：roles/nexus.md。遵守其中 v1 输出契约，只返回 Nexus Callout；不得直接写文件，把结果交给 Distill 核心 apply。
+"""
