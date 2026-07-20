@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from mind_os_builder.core.capabilities import ACTION_REGISTRY
 from mind_os_builder.jobs.catalog import JobCatalog, UnknownJobError
 from mind_os_builder.jobs.models import JobDefinition, JobSchemaError
 
@@ -55,3 +56,10 @@ def test_packaged_job_catalog_is_complete() -> None:
         "tech-research",
     }
     assert catalog.get("tech-radar").schedule_hint == "twice-monthly"
+
+
+def test_packaged_jobs_only_reference_public_actions() -> None:
+    catalog = JobCatalog.packaged()
+
+    for job_id in catalog.list_ids():
+        assert catalog.get(job_id).action in ACTION_REGISTRY

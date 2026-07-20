@@ -18,5 +18,5 @@ def doctor() -> dict[str, dict[str, dict[str, object]]]:
             }
         },
         "optional": {"obsidian": _binary("obsidian"), "opencli": _binary("opencli")},
-        "experimental": {"folo": _binary("folo")},
+        "experimental": {"folo": _binary("folocli")},
     }

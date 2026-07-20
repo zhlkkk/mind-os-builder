@@ -25,7 +25,11 @@ ACTION_REGISTRY: dict[str, ActionSpec] = {
         ActionSpec("distill.apply", ("workspace_write",), "Apply validated role callouts."),
         ActionSpec("research.run", ("network", "paid_call", "workspace_write"), "Run tech research."),
         ActionSpec("radar.review", ("read", "workspace_write"), "Review Tech Radar signals."),
-        ActionSpec("job.run", ("read",), "Dispatch a declared Job to an Action."),
+        ActionSpec(
+            "job.run",
+            ("network", "paid_call", "workspace_write"),
+            "Dispatch a declared Job to an Action.",
+        ),
     )
 }
 

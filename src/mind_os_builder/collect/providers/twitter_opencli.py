@@ -10,7 +10,7 @@ class TwitterOpenCliProvider:
     def __init__(
         self,
         *,
-        command: tuple[str, ...] = ("opencli", "twitter", "timeline", "--json"),
+        command: tuple[str, ...] = ("opencli", "twitter", "timeline", "-f", "json"),
         timeout: float = 30.0,
         runner: Runner = default_runner,
     ) -> None:

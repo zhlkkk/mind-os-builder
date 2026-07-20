@@ -79,6 +79,24 @@ def test_opencli_returns_sanitized_provider_errors(runner, expected_code) -> Non
     assert "synthetic-credential-marker" not in str(caught.value)
 
 
+def test_opencli_uses_the_current_json_output_contract() -> None:
+    seen: list[tuple[str, ...]] = []
+
+    def runner(command, _timeout):
+        seen.append(command)
+        return subprocess.CompletedProcess(
+            [],
+            0,
+            stdout='[{"id":"1","text":"synthetic","url":"https://example.invalid/1"}]',
+            stderr="",
+        )
+
+    batch = TwitterOpenCliProvider(runner=runner).fetch()
+
+    assert seen == [("opencli", "twitter", "timeline", "-f", "json")]
+    assert batch.records[0]["id"] == "1"
+
+
 def test_folo_cli_is_an_experimental_adapter_with_the_same_contract() -> None:
     def runner(_command, _timeout):
         return subprocess.CompletedProcess(

@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from mind_os_builder.cli.main import _emit
+from mind_os_builder.cli.main import _emit, main
 from mind_os_builder.core.results import RunEnvelope, RunStatus
 
 
@@ -48,3 +48,16 @@ def test_cli_json_envelope_is_stable(
     assert payload["api_version"] == "v1"
     assert payload["status"] == expected_status
     assert payload["reason_code"] == expected_reason
+
+
+def test_cli_exposes_books_and_job_catalog(tmp_path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["wiki", "init", str(tmp_path), "--apply", "--json"]) == 0
+    capsys.readouterr()
+
+    assert main(["books", "init", str(tmp_path), "--apply", "--json"]) == 0
+    books = json.loads(capsys.readouterr().out)
+    assert books["task"] == "books.init"
+
+    assert main(["job", "list", "--json"]) == 0
+    jobs = json.loads(capsys.readouterr().out)
+    assert "collect-twitter" in jobs["jobs"]

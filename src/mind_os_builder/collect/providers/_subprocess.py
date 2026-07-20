@@ -50,8 +50,12 @@ def run_json_command(
         payload: Any = json.loads(completed.stdout)
     except json.JSONDecodeError as exc:
         raise ProviderError("invalid_json", "provider returned invalid JSON") from exc
+    if isinstance(payload, list):
+        if not all(isinstance(item, Mapping) for item in payload):
+            raise ProviderError("invalid_payload", "provider records must be objects")
+        return ProviderBatch(records=tuple(dict(item) for item in payload))
     if not isinstance(payload, Mapping):
-        raise ProviderError("invalid_payload", "provider JSON must be an object")
+        raise ProviderError("invalid_payload", "provider JSON must be an object or array")
 
     raw_records: object = ()
     for key in record_keys:

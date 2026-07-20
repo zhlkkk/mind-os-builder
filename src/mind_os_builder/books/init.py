@@ -9,6 +9,10 @@ from mind_os_builder.core.write_guard import PathViolation, WriteGuard
 
 TASK = "books.init"
 ASSET_ROOT = "vault/books"
+INDEX_RELATIVE = Path("wiki/index.md")
+LOG_RELATIVE = Path("wiki/log.md")
+INDEX_ENTRY = "- [[example-book]] — Book Base 与 RIA 示例"
+LOG_ENTRY = "- 安装 Book Base 与 RIA 示例。"
 
 
 def _assets() -> dict[Path, str]:
@@ -45,12 +49,21 @@ def initialize_books(vault_root: Path, *, apply: bool = False) -> RunEnvelope:
         elif not target.is_file() or target.read_text(encoding="utf-8") != content:
             warnings.append(f"保留用户现有文件：{relative.as_posix()}")
 
-    if not missing:
+    index = (vault_root / INDEX_RELATIVE).read_text(encoding="utf-8")
+    log = (vault_root / LOG_RELATIVE).read_text(encoding="utf-8")
+    index_changed = INDEX_ENTRY not in index
+    log_changed = LOG_ENTRY not in log
+
+    if not missing and not index_changed and not log_changed:
         result = RunEnvelope.noop(TASK)
         result.warnings = warnings
         return result
 
     artifacts = sorted(path.as_posix() for path in missing)
+    if index_changed:
+        artifacts.append(INDEX_RELATIVE.as_posix())
+    if log_changed:
+        artifacts.append(LOG_RELATIVE.as_posix())
     if not apply:
         return RunEnvelope(
             task=TASK,
@@ -66,6 +79,10 @@ def initialize_books(vault_root: Path, *, apply: bool = False) -> RunEnvelope:
     try:
         for relative, content in missing.items():
             guard.atomic_write(relative, content)
+        if index_changed:
+            guard.atomic_write(INDEX_RELATIVE, index.rstrip() + "\n\n## 书籍\n\n" + INDEX_ENTRY + "\n")
+        if log_changed:
+            guard.atomic_write(LOG_RELATIVE, log.rstrip() + "\n" + LOG_ENTRY + "\n")
     except (OSError, PathViolation) as exc:
         return RunEnvelope.blocked(TASK, "path_violation", str(exc))
 

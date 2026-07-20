@@ -70,6 +70,11 @@ def _apply_under_lock(
         guard = WriteGuard(vault_root)
         target = guard.resolve(plan.source_path)
         content = target.read_text(encoding="utf-8")
+        pending = [response for response in responses if not was_applied(content, response.trigger_id)]
+        baseline_view = _strip_known_role_callouts(content, plan)
+        current_hash = hashlib.sha256(baseline_view.encode("utf-8")).hexdigest()
+        if pending and current_hash != plan.baseline_hash:
+            raise DistillConflict(f"journal baseline changed: {plan.source_path}")
         paragraphs = _split_paragraphs(content)
         trigger_by_id = {trigger.trigger_id: trigger for trigger in plan.triggers}
         insertions: list[tuple[int, int, str, str]] = []
@@ -120,6 +125,32 @@ def _apply_under_lock(
             warnings=tuple(warnings),
             artifacts=(plan.source_path,),
         )
+
+
+def _strip_known_role_callouts(content: str, plan: DistillPlan) -> str:
+    """比较基线时忽略 Agent 越权写入的规范 Callout，后续会显式跳过并告警。"""
+
+    expected: dict[str, set[Persona]] = {}
+    for trigger in plan.triggers:
+        expected.setdefault(_normalize(trigger.paragraph), set()).add(trigger.persona)
+    paragraphs = _split_paragraphs(content)
+    removals: list[tuple[int, int]] = []
+    for index, paragraph in enumerate(paragraphs):
+        personas = expected.get(_normalize(paragraph.text))
+        if not personas:
+            continue
+        last_end: int | None = None
+        for following in paragraphs[index + 1 :]:
+            first_line = following.text.lstrip().splitlines()[0]
+            if not any(_ROLE_HEADERS[persona].fullmatch(first_line) for persona in personas):
+                break
+            last_end = following.end
+        if last_end is not None:
+            removals.append((paragraph.end, last_end))
+    stripped = content
+    for start, end in sorted(removals, reverse=True):
+        stripped = stripped[:start] + stripped[end:]
+    return stripped
 
 
 def _validate_responses(

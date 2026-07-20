@@ -89,13 +89,13 @@ class JobRunner:
                 reason_code="timeout",
                 run_id=run_id,
             )
-        except Exception as exc:
+        except Exception:
             result = RunEnvelope(
                 task=f"job.{record.job.id}",
                 status=RunStatus.FAILED,
                 reason_code="command_error",
                 run_id=run_id,
-                errors=[{"code": "command_error", "message": str(exc)}],
+                errors=[{"code": "command_error", "message": "job command failed"}],
             )
         with self._state_lock:
             record.result = result
@@ -117,13 +117,13 @@ class JobRunner:
                 try:
                     result = record.future.result()
                     result.run_id = run_id
-                except Exception as exc:
+                except Exception:
                     result = RunEnvelope(
                         task=f"job.{record.job.id}",
                         status=RunStatus.FAILED,
                         reason_code="command_error",
                         run_id=run_id,
-                        errors=[{"code": "command_error", "message": str(exc)}],
+                        errors=[{"code": "command_error", "message": "job command failed"}],
                     )
                 record.result = result
             return record.result

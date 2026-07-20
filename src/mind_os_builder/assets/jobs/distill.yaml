@@ -1,17 +1,17 @@
 api_version: mindos.dev/v1
 id: distill
-action: distill.run
+action: distill.scan
 inputs:
   root: {required: true}
   source: {required: true}
-outputs: [run-envelope, role-drafts]
-effects: [read:vault, write:wiki]
+outputs: [run-envelope, distill-triggers]
+effects: [read:vault]
 default_mode: dry-run
 concurrency_key: "vault:{root}:wiki"
 timeout_seconds: 600
 retry: {attempts: 1}
 success_statuses: [succeeded, partial]
-required_capabilities: [wiki.read, wiki.write]
+required_capabilities: [wiki.read]
 required_secrets: []
 schedule_hint: daily
 timezone: local

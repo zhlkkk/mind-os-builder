@@ -24,6 +24,8 @@ def test_books_init_installs_assets_and_is_idempotent(tmp_path: Path) -> None:
     assert (vault / "templates/book-template.md").is_file()
     assert (vault / "wiki/books/books.base").is_file()
     assert (vault / "wiki/books/example-book.md").is_file()
+    assert "[[example-book]]" in (vault / "wiki/index.md").read_text(encoding="utf-8")
+    assert "安装 Book Base" in (vault / "wiki/log.md").read_text(encoding="utf-8")
     assert validate_books_module(vault) == []
 
     template = vault / "templates/book-template.md"
@@ -34,6 +36,7 @@ def test_books_init_installs_assets_and_is_idempotent(tmp_path: Path) -> None:
     assert second.changed is False
     assert template.read_text(encoding="utf-8").endswith("用户注释\n")
     assert second.warnings
+    assert (vault / "wiki/index.md").read_text(encoding="utf-8").count("[[example-book]]") == 1
 
 
 def test_books_init_dry_run_has_no_filesystem_effect(tmp_path: Path) -> None:

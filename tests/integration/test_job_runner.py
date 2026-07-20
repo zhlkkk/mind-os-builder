@@ -68,6 +68,19 @@ def test_runner_binds_job_to_registered_command_service() -> None:
     assert seen == [{"topic": "agents", "apply": True}]
 
 
+def test_runner_does_not_expose_command_exception_details() -> None:
+    def command(_inputs: Mapping[str, Any]) -> RunEnvelope:
+        raise RuntimeError("token=synthetic-secret")
+
+    job = _job("leaky", "vault:one")
+    runner = JobRunner(JobCatalog({job.id: job}), CommandRegistry({job.action: command}))
+
+    result = runner.run(job.id, {})
+
+    assert result.reason_code == "command_error"
+    assert "synthetic-secret" not in str(result.to_dict())
+
+
 def test_same_concurrency_key_serializes_but_distinct_keys_can_overlap() -> None:
     state_lock = Lock()
     active_by_key: dict[str, int] = {}

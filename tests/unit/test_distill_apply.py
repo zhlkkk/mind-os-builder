@@ -142,7 +142,25 @@ def test_apply_rejects_stale_edited_trigger_paragraph(tmp_path: Path) -> None:
         callout="> [!quote] 🔨 Vector (10:25)\n> - [ ] 合成动作。",
     )
 
-    with pytest.raises(DistillConflict, match="trigger paragraph changed"):
+    with pytest.raises(DistillConflict, match="baseline changed"):
         apply_responses(vault, plan, [output], apply=True)
 
     assert "Vector (10:25)" not in journal.read_text(encoding="utf-8")
+
+
+def test_apply_rejects_any_unreviewed_baseline_change(tmp_path: Path) -> None:
+    vault = tmp_path / "vault"
+    journal = vault / "journals/2026-07-20.md"
+    journal.parent.mkdir(parents=True)
+    journal.write_text("原始行动。 #vector\n", encoding="utf-8")
+    plan = scan_journal(vault, Path("journals/2026-07-20.md"))
+    trigger = plan.triggers[0]
+    journal.write_text("原始行动。 #vector\n\n用户追加了另一段。\n", encoding="utf-8")
+    output = RoleOutput(
+        trigger_id=trigger.trigger_id,
+        persona=Persona.VECTOR,
+        callout="> [!quote] 🔨 Vector (10:26)\n> - [ ] 合成动作。",
+    )
+
+    with pytest.raises(DistillConflict, match="baseline changed"):
+        apply_responses(vault, plan, [output], apply=True)
