@@ -64,6 +64,7 @@ mindos wiki lint ./demo-vault --json
 - [`docs/architecture.md`](docs/architecture.md)：当前模块、接口和写入模型。
 - [`docs/directory-contract.md`](docs/directory-contract.md)：顶层目录为何就是公开接口。
 - [`docs/providers.md`](docs/providers.md)：OpenCLI、Folo 与研究工具的前置条件。
+- [`docs/knowledge-applications.md`](docs/knowledge-applications.md)：基于知识库与知识图谱的内容流水线和应用模型。
 - [`docs/evolution-roadmap.md`](docs/evolution-roadmap.md)：扩展能力、分发形态和产品化路线。
 - [`docs/legacy-system.md`](docs/legacy-system.md)：旧体系保留了哪些方法、删除了哪些实现。
 

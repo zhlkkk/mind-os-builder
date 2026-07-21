@@ -42,6 +42,24 @@ MCP ────────────── 静态转发 ──┘
 
 Jobs 不执行，MCP 不生成领域能力，Skills 不直接写 vault。运行层可以替换，CLI JSON 与文件结果保持不变。
 
+## 未来的知识应用 seam
+
+内容生产和其他知识图谱应用复用同一条深模块接口，而不是分别建设独立运行时：
+
+```text
+vault / link graph
+  -> 带来源与基线 hash 的 Knowledge Pack
+  -> Agent 生成结构化决策或 Artifact Spec
+  -> CLI preview / validate / commit
+  -> 内容、媒体资产或其他应用结果
+```
+
+Knowledge Pack 隐藏 Markdown、wikilink、frontmatter 和未来图存储之间的读取差异；Artifact Manifest 统一记录输入知识、提示词或模板版本、外部 Adapter、输出文件与 hash。调用方只需要理解这两个接口，不需要知道知识如何存储或媒体如何生成。
+
+文本、卡片、图片、音频和视频的语义生成仍属于 Skill 与外层 Agent；文件命名、来源引用、批次基线、Schema、资产清单、路径保护、幂等和提交属于 CLI；图像、语音、视频和发布平台通过显式 Adapter 接入。只有同一 seam 出现两个真实 Adapter 后才抽取公共接口。
+
+详细演进方案见 [`knowledge-applications.md`](knowledge-applications.md)。
+
 ## 产品化边界
 
 产品形态可以增加安装向导、依赖诊断、配置编辑、批次预览、diff 审批、定时任务接入和运行历史，但不改变所有权：vault 仍由用户持有，语义判断仍由外层 Agent 完成，确定性写入仍由 CLI 校验。产品外壳是现有接口的消费者，不是第二套核心。
