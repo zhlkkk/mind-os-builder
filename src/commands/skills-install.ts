@@ -119,7 +119,7 @@ async function digest(root: string, omitRoles = false): Promise<string> {
     for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
       const nextRelative = relativePath.length === 0 ? entry.name : `${relativePath}/${entry.name}`;
       const nextPath = join(path, entry.name);
-      if (omitRoles && nextRelative === "references") {
+      if (omitRoles && nextRelative === "references/roles") {
         continue;
       }
       if (entry.isSymbolicLink()) {
@@ -170,10 +170,6 @@ async function targetState(source: string, target: string, roles: string, name: 
       return "unchanged";
     }
     const installedRoles = join(target, "references", "roles");
-    const references = await readdir(join(target, "references"));
-    if (references.length !== 1 || references[0] !== "roles") {
-      return "conflict";
-    }
     return await digest(roles) === await digest(installedRoles) ? "unchanged" : "conflict";
   } catch {
     return "conflict";

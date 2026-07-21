@@ -66,30 +66,30 @@ commands:
     result_schema: contracts/cli-result.schema.json
     effects: [workspace.read]
     agent_next_step: 让对应角色 Agent 生成结构化回复。
-    stable_errors: [mindos.input.invalid, mindos.filesystem.protected_path]
-  - name: distill.apply
+    stable_errors: [mindos.input.invalid, mindos.filesystem.invalid_root, mindos.filesystem.protected_path]
+  - name: distill.commit
     result_schema: contracts/cli-result.schema.json
     input_schema: contracts/distill-responses.schema.json
     effects: [workspace.write]
     agent_next_step: 解决来源基线变化后重新 scan。
-    stable_errors: [mindos.input.invalid, mindos.state.conflict]
+    stable_errors: [mindos.input.invalid, mindos.state.conflict, mindos.state.locked, mindos.filesystem.invalid_root, mindos.filesystem.protected_path]
   - name: radar.prepare
     result_schema: contracts/cli-result.schema.json
     effects: [workspace.read, temp.write]
     agent_next_step: 逐项批准或拒绝建议后提交完整决策。
-    stable_errors: [mindos.input.invalid, mindos.filesystem.invalid_root]
+    stable_errors: [mindos.input.invalid, mindos.filesystem.invalid_root, mindos.filesystem.protected_path]
   - name: radar.commit
     result_schema: contracts/cli-result.schema.json
     input_schema: contracts/radar-decisions.schema.json
     effects: [workspace.write]
     agent_next_step: 解决页面基线变化后重新 prepare。
-    stable_errors: [mindos.input.invalid, mindos.state.batch_expired, mindos.state.conflict]
+    stable_errors: [mindos.input.invalid, mindos.state.batch_missing, mindos.state.batch_expired, mindos.state.conflict, mindos.state.locked, mindos.filesystem.invalid_root, mindos.filesystem.protected_path]
   - name: research.commit
     result_schema: contracts/cli-result.schema.json
     input_schema: contracts/research-report.schema.json
     effects: [workspace.write]
     agent_next_step: 补齐来源或修复候选报告后重新预演。
-    stable_errors: [mindos.input.invalid, mindos.filesystem.protected_path, mindos.filesystem.conflict]
+    stable_errors: [mindos.input.invalid, mindos.filesystem.protected_path, mindos.filesystem.invalid_root, mindos.state.conflict, mindos.state.locked]
   - name: jobs.list
     result_schema: contracts/cli-result.schema.json
     effects: [workspace.read]
@@ -104,4 +104,4 @@ commands:
     result_schema: contracts/cli-result.schema.json
     effects: [workspace.read]
     agent_next_step: 安装可选 MCP 依赖后重试，或直接使用 CLI。
-    stable_errors: [mindos.dependency.unavailable]
+    stable_errors: [mindos.dependency.unavailable, mindos.filesystem.invalid_root]

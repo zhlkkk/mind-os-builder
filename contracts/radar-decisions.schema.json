@@ -4,9 +4,23 @@
   "title": "技术雷达决策 v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "decisions"],
+  "required": ["version", "batch_id", "baseline_hash", "decisions"],
   "properties": {
     "version": {"const": "v1"},
-    "decisions": {"type": "array", "maxItems": 500, "items": {"type": "object", "additionalProperties": false, "required": ["item", "action"], "properties": {"item": {"type": "string", "minLength": 1, "maxLength": 256}, "action": {"enum": ["adopt", "trial", "hold", "retire"]}}}}
+    "batch_id": {"type": "string", "pattern": "^[a-f0-9]{32}$"},
+    "baseline_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "decisions": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["suggestion_id", "decision"],
+        "properties": {
+          "suggestion_id": {"type": "string", "pattern": "^radar:v1:[a-f0-9]{20}$"},
+          "decision": {"enum": ["approve", "reject"]}
+        }
+      }
+    }
   }
 }

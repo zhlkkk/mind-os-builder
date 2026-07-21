@@ -1,17 +1,10 @@
-api_version: mindos.dev/v1
-id: distill
-action: distill.scan
+version: v1
+name: 日记角色蒸馏
 inputs:
-  root: {required: true}
-  source: {required: true}
-outputs: [run-envelope, distill-triggers]
-effects: [read:vault]
-default_mode: dry-run
-concurrency_key: "vault:{root}:wiki"
-timeout_seconds: 600
-retry: {attempts: 1}
-success_statuses: [succeeded, partial]
-required_capabilities: [wiki.read]
-required_secrets: []
-schedule_hint: daily
-timezone: local
+  vault: /绝对路径/Mind-OS
+  source: journals/YYYY-MM-DD.md
+skill: .agents/skills/distill/SKILL.md
+effects: [workspace.read, workspace.write]
+concurrency: single
+retry: {max_attempts: 0}
+schedule: daily

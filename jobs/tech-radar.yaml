@@ -1,19 +1,10 @@
-api_version: mindos.dev/v1
-id: tech-radar
-action: radar.review
+version: v1
+name: 技术雷达人工复查
 inputs:
-  root: {required: true}
-  pages: {required: false}
-  hub: {required: false}
-  today: {required: false}
-outputs: [run-envelope, radar-suggestions]
-effects: [read:wiki, write:wiki]
-default_mode: dry-run
-concurrency_key: "vault:{root}:wiki"
-timeout_seconds: 120
-retry: {attempts: 1}
-success_statuses: [succeeded]
-required_capabilities: [wiki.read, wiki.write]
-required_secrets: []
-schedule_hint: twice-monthly
-timezone: local
+  vault: /绝对路径/Mind-OS
+  page: wiki/concepts/tech-radar.md
+skill: .agents/skills/radar-review/SKILL.md
+effects: [workspace.read, workspace.write]
+concurrency: single
+retry: {max_attempts: 0}
+schedule: twice-monthly

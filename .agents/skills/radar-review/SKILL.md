@@ -1,14 +1,17 @@
 ---
 name: radar-review
-description: 审查技术雷达信号的日期、层级和建议动作。用户要发现到期、临近、缺字段或需要人工升级判断的条目时使用。
-compatibility: 需要 Python 3.11+ 和可用的 mindos CLI；本地 dry-run 不需要网络。
+description: 准备技术雷达到期建议，组织 Agent 与用户逐项批准或拒绝，并安全提交已批准标记。用户要复查 Radar 日期、层级或建议动作时使用。
+compatibility: 需要 Node.js 24+ 和 mindos CLI；人工确认不需要网络。
 ---
 
 # Radar Review
 
-1. 运行 `mindos radar review <vault-root> --json`；需要固定输入时追加 `--page <page>`、`--hub <hub>` 或 `--today <YYYY-MM-DD>`；完成条件：`status` 为 `succeeded`、`reason_code` 为 `dry_run`，并取得 `metrics.active`、`near` 和 `actions`。
-2. 逐项核对日期、当前层级、来源日期和建议动作；完成条件：`metrics.actions` 中每一项都被归类为确定性到期、证据驱动升级或信息不足。
-3. 向用户呈现将写入的建议标记和目标页面，取得逐项确认后用相同命令追加 `--apply`；完成条件：`artifacts` 只包含已确认页面及 `wiki/log.md`，页面移动、归档和高判断升级仍交给人类。
-4. 重复执行同一条 `--apply` 命令验证幂等；完成条件：`changed` 为 `false`、`reason_code` 为 `noop`，页面中没有重复建议标记。
+CLI 根据结构化日期准备候选并验证提交；是否接受建议由 Agent 与用户决定。CLI 不移动、归档页面，也不修改 `wiki/insights/`。
 
-调度器或 Agent Automation 只负责触发命令；公共工作流保持客户端中立。
+1. 运行 `mindos radar prepare <vault> --page <wiki/page.md> --today <YYYY-MM-DD> --json`；`--page` 可重复，也可改用 `--hub <wiki/index.md>` 解析 Wikilink。
+2. 检查 `data.diagnostics` 中的缺日期、未来日期和已标记项，再逐项向用户展示 `data.suggestions` 的页面、层级、日期、年龄与建议动作。
+3. 严格按 [决策契约](references/decision-schema.md) 为每个 suggestion 生成一次 `approve` 或 `reject`。不得遗漏，也不得在决定中提供目标路径或替代动作。
+4. 运行 `mindos radar commit <vault> <decisions.json> --json` 预演。全拒绝返回 `noop`；基线或批次冲突时停止并重新 prepare。
+5. 用户确认后追加 `--apply`。CLI 只在获批条目的原页面加入建议标记；相同决定重放返回 `noop`。
+
+批次只短期保存在按用户与 vault 隔离的系统临时目录。不要复制旧批次到另一个 vault，也不要让 Agent 直接编辑 Radar 页面。

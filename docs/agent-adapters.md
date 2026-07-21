@@ -1,21 +1,22 @@
 # Agent 适配器
 
-Mind OS Builder 的确定性业务能力只实现一次：应用层 Action 返回统一 `RunEnvelope`。CLI 是稳定参考接口；Agent Skills 通过 CLI 调用；MCP 只做输入收窄、固定本地边界和结果转发。
+规范 Skills 位于 `.agents/skills/`。Claude Code、Codex、Pi、Hermes、OpenClaw 与 WorkBuddy 通过各自原生目录发现同一套 Skill；业务流程不复制到适配器。
 
-## Agent Skills
+```bash
+mindos skills install codex --scope project --project /绝对路径/项目 --json
+mindos skills install codex --scope project --project /绝对路径/项目 --apply --json
+```
 
-仓库中的规范 Skills 位于顶层 `.agents/skills/`。每个 Skill 只使用开放 Agent Skills 元数据、客户端中立流程和 `mindos ... --json` 命令，不依赖特定客户端的工具名、权限语法或子代理接口。
-
-安装 Skill 时复制完整目录，并确认环境中存在 Python 3.11+ 与 `mindos`。可用 `scripts/install_harness.py` 适配不同宿主的发现目录；默认只预演，`--apply` 才复制，且不会覆盖冲突目录。六种宿主的具体路径见 [adapters/](../adapters/README.md)。
+安装器默认 preview，不覆盖冲突目录。Distill 的安装副本会在规范 reference 之外物化 `agents/roles/`，让 Skill 离开仓库后仍可使用五角色契约。六种宿主路径见 [`adapters/`](../adapters/README.md)。
 
 ## MCP stdio
 
-MCP v1 只支持本地 stdio。宿主在创建 Server 时必须注入：
+MCP 是可选本地适配器：
 
-- 一个启动后不可更改的 vault 根目录；
-- 调用共享应用服务的 `ActionDispatcher`；
-- 可选的 Job 清单和最近运行摘要。
+```bash
+mindos mcp serve /绝对路径/my-mind-os
+```
 
-Server 为 Action Registry 中的动作生成同名下划线工具，例如 `wiki.lint` 映射为 `wiki_lint`。每个工具接收 `parameters` 与默认值为 `false` 的 `apply`。resources 提供 `mindos://capabilities`、`mindos://jobs`、`mindos://schemas/config` 和 `mindos://runs/latest`。
+启动时固定 vault；工具参数不能换根目录。默认安装包含可选 MCP SDK，使用 `npm install --omit=optional` 时核心 CLI/Skills 仍可用，`mcp serve` 会返回 `mindos.dependency.unavailable`。
 
-第一版拒绝 HTTP 等远程 transport。stdio 的 stdout 只承载 MCP 协议；宿主日志必须写 stderr，并且不得包含凭证或 vault 内容。
+第一版只暴露 `mindos_wiki_lint`、`mindos_wiki_query`、`mindos_books_validate` 和 `mindos_wiki_init`。stdio stdout 只承载协议；工具通过子进程调用同一 CLI，写入仍需显式 `apply: true`。没有自动 Registry、远程 transport、resources、任务状态或模型调用。

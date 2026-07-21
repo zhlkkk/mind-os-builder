@@ -60,7 +60,34 @@ CLI 不执行提示词，也不信任 Agent 输出。`commit` 会检查完整覆
 
 ## Tech Research Provider
 
-Tech Research 与采集模块分离。它的 Key、路由和证据契约见 Tech Research Skill；Key 值始终由用户通过环境或宿主凭证机制提供。项目不申请账号、购买额度、写入 `.env` 或自动安装 Provider SDK。
+Tech Research 与采集模块分离。它不再有内置 Provider Runtime，也不从 `.mindos/config.yaml`、进程环境或 CLI 参数读取研究 Key。外层 Agent 使用当前宿主已经提供的能力完成研究，`mindos` 只校验和提交候选报告。
+
+Skill 按能力而不是厂商选择工具：
+
+| 研究能力 | 可选接入举例 | 是否必需 |
+|---|---|---|
+| Web 搜索 | 宿主内置 Web Search、Tavily、Brave、Exa、Perplexity MCP/插件 | 至少一种可追溯来源能力 |
+| Web 抓取 | 宿主浏览器、fetch/crawl、Exa contents | 建议，用于回到原文 |
+| 代码与论文 | GitHub、论文检索、Exa | 按主题 |
+| 深度研究 | Tavily Research、Perplexity Research、宿主 research 工具 | `deep` 建议 |
+| 社媒信号 | OpenCLI、宿主社媒工具、公开搜索 | 可选，不能单独证明事实 |
+
+用户在 Claude Code、Codex、Pi、Hermes、OpenClaw 或 WorkBuddy 自己的配置层安装 MCP/插件或外部 CLI，并在那里注入 Key。常见适配器可能要求 `TAVILY_API_KEY`、`BRAVE_API_KEY`、`EXA_API_KEY`、`PERPLEXITY_API_KEY`、`OPENROUTER_API_KEY` 或 `GOOGLE_API_KEY`；实际变量名以所选适配器为准，这些名称和值都不写入 vault 配置。项目不自动安装工具、申请账号、购买额度或创建 `.env`。
+
+使用内置 Web 工具时无需为项目增加配置；把“使用 `.agents/skills/tech-research/SKILL.md` 调研主题，并将候选文件交给 `mindos research commit`”发给 Agent 即可。使用 MCP 或 CLI 时，先在宿主中独立确认工具能返回 URL，再启动 Skill。
+
+只有一种工具时仍可研究，但报告必须收窄结论并说明单一来源限制。部分工具失败时生成 `partial` 报告和“证据缺口”；全部工具不可用时停止，不生成伪完成报告。OpenRouter/Grok 或 Google/Gemini 可帮助反方审视和综合，但不是硬依赖，模型输出也不是来源。
+
+候选报告在 vault 外生成，frontmatter 记录本次真实使用的能力和来源。提交命令默认 preview：
+
+```bash
+mindos research commit ./my-mind-os /tmp/candidate.md \
+  --target raw/research/2026-07-21-topic.md --json
+mindos research commit ./my-mind-os /tmp/candidate.md \
+  --target raw/research/2026-07-21-topic.md --apply --json
+```
+
+CLI 不联网、不调用模型、不执行提示词，也不会覆盖同名不同内容的已有报告。
 
 ## 失败语义
 

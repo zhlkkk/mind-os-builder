@@ -4,7 +4,12 @@ import { Command, CommanderError } from "commander";
 import { registerBooksCommands } from "./commands/books.js";
 import { registerCollectCommands } from "./commands/collect.js";
 import { doctor } from "./commands/doctor.js";
+import { registerDistillCommands } from "./commands/distill.js";
+import { registerJobCommands } from "./commands/jobs.js";
+import { registerMcpCommands } from "./commands/mcp.js";
+import { registerResearchCommands } from "./commands/research.js";
 import { installSkills } from "./commands/skills-install.js";
+import { registerRadarCommands } from "./commands/radar.js";
 import { registerWikiCommands } from "./commands/wiki.js";
 import { MindosError } from "./lib/paths.js";
 import { blockedFromError, failedResult, type CliResult } from "./lib/result.js";
@@ -34,6 +39,11 @@ program
 registerWikiCommands(program, emit);
 registerBooksCommands(program, emit);
 registerCollectCommands(program, emit);
+registerDistillCommands(program, emit);
+registerJobCommands(program, emit);
+registerMcpCommands(program);
+registerRadarCommands(program, emit);
+registerResearchCommands(program, emit);
 
 program
   .command("skills")

@@ -29,33 +29,3 @@ collect:
       developer-tools: 开发工具
       products-practice: 产品与实践
       other: 其他
-
-research:
-  timeout_seconds: 90
-  attempts: 3
-  retry_backoff_seconds: [1.5, 3.0]
-  tavily_research_wait_seconds: 180
-  tavily_poll_interval_seconds: 5
-  providers:
-    tavily-search:
-      enabled: true
-      key_env: TAVILY_API_KEY
-    tavily-research:
-      enabled: true
-      key_env: TAVILY_API_KEY
-    exa:
-      enabled: true
-      key_env: EXA_API_KEY
-    perplexity:
-      enabled: true
-      key_env: PERPLEXITY_API_KEY
-      model: sonar-pro
-      deep_model: sonar-deep-research
-    openrouter:
-      enabled: true
-      key_env: OPENROUTER_KEY
-      model: x-ai/grok-4.3
-    google:
-      enabled: true
-      key_env: GOOGLE_AI_KEY
-      model: gemini-2.5-pro

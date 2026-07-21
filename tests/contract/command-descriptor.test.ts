@@ -34,7 +34,7 @@ test("命令描述符发布分阶段命令和代理下一步", () => {
       "collect.rss.prepare",
       "collect.rss.commit",
       "distill.scan",
-      "distill.apply",
+      "distill.commit",
       "radar.prepare",
       "radar.commit",
       "research.commit",
@@ -69,7 +69,9 @@ test("命令描述符拒绝未知字段和无效技能引用", () => {
     ["collect.twitter.prepare", ".agents/skills/twitter-digest/SKILL.md"],
     ["collect.twitter.commit", ".agents/skills/twitter-digest/SKILL.md"],
     ["distill.scan", ".agents/skills/distill/SKILL.md"],
-    ["distill.apply", ".agents/skills/distill/SKILL.md"],
+    ["distill.commit", ".agents/skills/distill/SKILL.md"],
+    ["radar.prepare", ".agents/skills/radar-review/SKILL.md"],
+    ["radar.commit", ".agents/skills/radar-review/SKILL.md"],
   ];
 
   for (const [command, path] of skillReferences) {

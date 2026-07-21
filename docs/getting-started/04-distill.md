@@ -1,59 +1,49 @@
 # 04 Distill：一个编排器与五个角色
 
-Distill 的确定性核心扫描日记标签、生成稳定触发 ID、安排并发波次、验证角色输出并幂等追加。Lumina、Prism、Vector、Nexus、Ember 只负责判断与正文，不直接写文件。
+Distill 按 `scan → Agent 角色回复 → commit` 工作。CLI 只扫描日记、验证完整回复、检查来源基线并幂等追加；Lumina、Prism、Vector、Nexus、Ember 负责判断与正文，不能直接写 vault。
 
 ## 前置条件
 
-- vault 中有 `journals/*.md`。
-- 了解五个标签：`#lumina`、`#prism`、`#vector`、`#nexus`、`#ember`。
-- Agent 适配器可选；离线示例使用固定 fake 输出。
+- 已安装 Node.js 24+ 与 `mindos`。
+- vault 中存在 `journals/*.md`。
+- 日记使用 `#lumina`、`#prism`、`#vector`、`#nexus`、`#ember` 或 `#book/<slug>` 标签。
 
-## 动作
-
-复制合成日记并扫描：
+## 扫描与生成回复
 
 ```bash
-cp examples/synthetic-vault/journals/demo.md ./my-mind-os/journals/demo.md
-uv run mindos distill scan ./my-mind-os journals/demo.md --json
+mindos distill scan ./my-mind-os journals/2026-07-21.md --json
 ```
 
-让 Agent 按扫描结果生成 `responses.json`。顶层必须包含扫描结果的 `baseline_hash` 和 `responses` 数组；每项只包含 `trigger_id`、`persona` 和规范 `callout`：
+有待处理标签时结果为 `state: needs_agent`。把 `data.triggers` 交给对应角色：不同 `concurrency_key` 可以并行，相同 Ember 键串行。角色按 `.agents/skills/distill/references/response-schema.md` 生成 `responses.json`，其中基线必须原样取自 `data.baseline_hash`。
 
 ```json
 {
-  "baseline_hash": "从 scan.metrics.baseline_hash 原样复制",
+  "version": "v1",
+  "baseline_hash": "从 scan.data.baseline_hash 原样复制",
   "responses": [
-    {"trigger_id": "...", "persona": "lumina", "callout": "> [!quote] ..."}
+    {
+      "trigger_id": "distill:v1:...",
+      "persona": "lumina",
+      "callout": "> [!quote] 🌿 Lumina (10:20)\n> 一段合成回复。"
+    }
   ]
 }
 ```
 
-先预演，再写入：
+## 预演与提交
 
 ```bash
-uv run mindos distill apply ./my-mind-os journals/demo.md responses.json --json
-uv run mindos distill apply ./my-mind-os journals/demo.md responses.json --apply --json
+mindos distill commit ./my-mind-os journals/2026-07-21.md responses.json --json
+mindos distill commit ./my-mind-os journals/2026-07-21.md responses.json --apply --json
 ```
 
-可直接运行 `examples/offline_full_journey.py` 查看固定 fake 输出。不得让角色自行编辑 journal，也不得接受角色请求额外写入路径。
+第一条命令不写 vault。第二条只有在回复完整、persona 匹配、Callout 合法且日记仍符合扫描基线时才写入。重复提交同一文件返回 `noop`，不会重复 Callout。
 
-## 可见产物
+## 安全边界与排错
 
-- `journals/2026-07-20.md` 中每个合成段落下方出现对应角色 Callout。
-- 每个回复带不可伪造的 `mindos:distill:<trigger_id>` 幂等标记。
-- 同一 Ember 状态的触发串行，其他角色可位于同一并发波次。
+- `mindos.input.invalid`：缺回复、未知 trigger、persona 不匹配、非法 Callout 或额外字段；修正同一响应文件。
+- `mindos.state.conflict`：scan 后日记发生变化；重新 scan 并让角色基于新内容回复，不要自动合并。
+- `mindos.state.locked`：另一个提交正在处理同一 vault；稍后用相同输入重试。
+- 只接受 vault 内的 `journals/*.md`，不接受绝对路径、遍历路径、符号链接或任何角色请求的额外写入。
 
-## 排错
-
-- 没有 trigger：检查标签是否位于正文段落，且该段落旁是否已有对应 Callout。
-- `persona mismatch`：角色输出与触发分发不一致。
-- `trigger paragraph changed`：扫描后用户修改了原段落；重新扫描，不要覆盖用户修改。
-- 输出请求其他文件写入：核心会拒绝；Nexus 的调研结果应走独立 Research Action。
-
-## 完成检查
-
-```bash
-grep -c 'mindos:distill:' my-mind-os/journals/demo.md
-```
-
-离线示例应输出 `5`。再次应用同一批输出时文件内容不应变化。
+提交后再次运行 scan 应返回 `state: noop`。每个已提交回复都包含 CLI 生成的 `mindos:distill:<trigger_id>` marker；角色不得自行生成 marker。

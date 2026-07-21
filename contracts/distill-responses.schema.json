@@ -4,9 +4,23 @@
   "title": "蒸馏回复 v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "responses"],
+  "required": ["version", "baseline_hash", "responses"],
   "properties": {
     "version": {"const": "v1"},
-    "responses": {"type": "array", "maxItems": 500, "items": {"type": "object", "additionalProperties": false, "required": ["trigger_id", "response"], "properties": {"trigger_id": {"type": "string", "minLength": 1, "maxLength": 256}, "response": {"type": "string", "minLength": 1, "maxLength": 20000}}}}
+    "baseline_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "responses": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["trigger_id", "persona", "callout"],
+        "properties": {
+          "trigger_id": {"type": "string", "pattern": "^distill:v1:[a-f0-9]{20}$"},
+          "persona": {"enum": ["lumina", "prism", "vector", "nexus", "ember"]},
+          "callout": {"type": "string", "minLength": 1, "maxLength": 20000}
+        }
+      }
+    }
   }
 }

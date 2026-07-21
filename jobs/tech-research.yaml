@@ -1,24 +1,11 @@
-api_version: mindos.dev/v1
-id: tech-research
-action: research.run
+version: v1
+name: 技术调研
 inputs:
-  root: {required: true}
-  topic: {required: true}
-  mode: {default: standard}
-  focus: {default: ""}
-  providers: {default: auto}
-  config: {required: false}
-  timeout: {required: false}
-  tavily_research_wait: {required: false}
-  tavily_poll_interval: {required: false}
-outputs: [run-envelope, research-report]
-effects: [network:optional, write:research]
-default_mode: dry-run
-concurrency_key: "vault:{root}:research:{topic}"
-timeout_seconds: 900
-retry: {attempts: 1}
-success_statuses: [succeeded, partial]
-required_capabilities: [research]
-required_secrets: []
-schedule_hint: manual
-timezone: local
+  vault: /绝对路径/Mind-OS
+  topic: 待调研技术
+  mode: standard
+skill: .agents/skills/tech-research/SKILL.md
+effects: [workspace.read, workspace.write, network.read]
+concurrency: single
+retry: {max_attempts: 0}
+schedule: manual

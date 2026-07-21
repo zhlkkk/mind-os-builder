@@ -1,6 +1,6 @@
 interface:
   display_name: "技术调研"
   short_description: "多源调研技术成熟度、讨论与落地"
-  default_prompt: "使用 $tech-research 调研一项技术的核心功能、实现原理、成熟度、开发者讨论、最佳实践和应用场景，并保存到 raw/research。"
+  default_prompt: "使用 $tech-research 调研一项技术，先用宿主工具核验证据，在 vault 外生成候选报告，再通过 mindos research commit 预演并提交。"
 policy:
   allow_implicit_invocation: true

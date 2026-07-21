@@ -1,26 +1,17 @@
 ---
 name: distill
-description: 蒸馏日记中的角色标签并编排五类 Callout。用户要扫描待提炼段落、生成 Lumina、Prism、Vector、Nexus、Ember 回复，或安全追加结果时使用。
-compatibility: 需要 Python 3.11+ 和可用的 mindos CLI；生成角色回复需要调用方自选的 Agent 或模型能力。
+description: 扫描日记中的角色标签，编排 Lumina、Prism、Vector、Nexus、Ember 生成回复，并通过确定性 CLI 安全提交。用户要提炼日记或处理角色标签时使用。
+compatibility: 需要 Node.js 24+ 和 mindos CLI；角色回复由宿主 Agent 生成。
 ---
 
 # Distill
 
-1. 运行 `mindos distill scan <vault-root> <source> --json`；完成条件：已保存 `metrics.baseline_hash` 和全部 `metrics.triggers`，`metrics.trigger_count: 0` 时以 `noop` 结束。
-2. 按中立角色契约为每个 trigger 生成一个 Callout：安装副本读取本 Skill 的 `references/roles/`，源码仓库读取根目录的 `agents/roles/`；完成条件：每个输出的 `trigger_id` 与 `persona` 原样匹配扫描结果，且 Callout 通过对应角色格式约束。
-3. 按下方契约生成 `responses.json`；完成条件：顶层 `baseline_hash` 原样来自本次扫描，`responses` 恰好覆盖本次要处理的 trigger，没有额外字段或文件操作请求。
-4. 运行 `mindos distill apply <vault-root> <source> <responses.json> --json` 预演；完成条件：`status` 为 `succeeded`、`reason_code` 为 `dry_run` 或 `noop`，且 planned、skipped trigger 均能与输入对应。
-5. 用户确认预演后，用相同命令追加 `--apply`；完成条件：再次扫描得到 `trigger_count: 0`，重复应用同一响应返回 `changed: false` 和 `reason_code: noop`。
+CLI 只扫描、校验和提交；本 Skill 与 `agents/roles/` 负责角色选择和回复生成。角色不得直接编辑 vault。
 
-## `responses.json` 契约
+1. 运行 `mindos distill scan <vault> <journals/file.md> --json`。`state: noop` 表示没有待处理标签；`state: needs_agent` 时保存 `data.baseline_hash` 与 `data.triggers`。
+2. 按每个 trigger 的 `persona` 读取对应角色契约。不同 `concurrency_key` 可并行；相同 Ember 键必须串行。`book_slug` 和 Nexus 的 `mode` 只作为角色上下文。
+3. 严格按 [回复契约](references/response-schema.md) 生成 JSON。每个 trigger 必须且只能有一项回复，不得添加路径或写入请求。
+4. 运行 `mindos distill commit <vault> <journals/file.md> <responses.json> --json` 预演。若返回 `mindos.state.conflict`，停止并重新 scan，不尝试合并用户修改。
+5. 用户确认后追加 `--apply`。成功后重新 scan 应为 `noop`；相同输入重放也应为 `noop`。
 
-```json
-{
-  "baseline_hash": "<scan.metrics.baseline_hash>",
-  "responses": [
-    {"trigger_id": "<id>", "persona": "<persona>", "callout": "<符合角色契约的 Callout>"}
-  ]
-}
-```
-
-角色输出仅包含 Callout 文本；路径校验、幂等、加锁和文件追加始终交给确定性核心。
+Callout 的观点、措辞和时间由角色生成；CLI 只验证角色头、每行 `>`、完整覆盖、来源基线和幂等 marker。

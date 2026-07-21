@@ -1,57 +1,35 @@
 # 06 Agent、MCP 与自动任务适配
 
-CLI、MCP、Agent Skills 和 Job 都是同一 Action Registry 的适配入口。业务规则只存在于 Python 领域核心，任何入口都不能复制过滤、路径保护或幂等逻辑。
+## 安装到 Agent 宿主
 
-## 前置条件
-
-- 已跑通离线完整旅程。
-- 使用 MCP 时安装项目的 `mcp` 可选依赖，并固定本地 stdio 与 vault 根目录。
-- 使用 Agent Skills 时，客户端需支持开放 Agent Skills 目录约定。
-
-## 动作
-
-1. 从顶层 `.agents/skills/` 复制所需 Skill 完整目录，或使用 `scripts/install_harness.py` 投影到宿主的发现目录。
-2. MCP 宿主启动时注入固定 vault 根目录和共享 `ActionDispatcher`。
-3. 自动任务读取顶层 `jobs/*.yaml`，或运行参考示例：
+先预演，再显式安装：
 
 ```bash
-uv run mindos job list --json
-uv run mindos job describe lint --json
-uv run mindos job run lint ./my-mind-os --json
-uv run python examples/run_lint_job.py --vault ./my-mind-os --json
+mindos skills install codex --scope project --project /绝对路径/目标项目 --json
+mindos skills install codex --scope project --project /绝对路径/目标项目 --apply --json
 ```
 
-Job 的 `schedule_hint` 只是提示。你可以使用已有 Agent、cron、launchd 或其他平台触发，也可以完全手动运行；项目不要求安装任何调度器。
+把 `codex` 换成 `claude-code`、`pi`、`hermes`、`openclaw` 或 `workbuddy`。用户级安装改用 `--scope user`。具体原生目录见 [`adapters/`](../../adapters/README.md)。
 
-Claude Code、Codex、Pi、Hermes、OpenClaw 与 WorkBuddy 的安装命令和原生路径见 [Agent 宿主适配目录](../../adapters/README.md)。也可以直接把 [安装指令](../install-with-agent.md) 交给当前 Agent。
-
-需要 MCP 时，以固定 vault 根目录启动 stdio：
+## 让自己的运行层读取 Jobs
 
 ```bash
-uv run mindos mcp serve ./my-mind-os
+mindos jobs list --json
+mindos jobs show lint --json
 ```
 
-`status`、`cancel` 和 `resume` 只存在于同一进程内的长驻 `JobRunner` 参考接口；首版没有虚构跨进程状态存储的 CLI 命令。
+运行层把 `command` 当 argv，把 `skill` 交给 Agent，并遵守 effects 与 schedule。项目不执行 Job，也不提供调度器；cron、launchd、CI 和 Agent 工具都是可选运行层。
 
-## 可见产物
+## 可选 MCP
 
-- Skill 通过 `mindos ... --json` 调用稳定契约。
-- MCP 暴露 Action tools 与 capability、jobs、config、run summary resources。
-- Job 结果仍是同一个 `RunEnvelope`，包含 run ID、状态、产物、告警、错误和指标。
-- 不同入口对相同 Action 的领域字段一致。
+在宿主中配置本地 stdio 命令：
 
-## 排错
+```bash
+mindos mcp serve /绝对路径/my-mind-os
+```
 
-- MCP 启动失败：确认安装 `mcp>=1.27,<2`，且 transport 为 stdio。
-- MCP 路径被拒绝：vault 根目录只能在启动时固定，请求参数不能逃逸。
-- Job 为 `config_error`：Action 未注册或 Job ID 不存在。
-- Agent 尝试直接写文件：调整 Skill，让它调用 Action；提示词不是安全边界。
-- 自动任务没有按时运行：Job 本身不含调度器，请检查你选择的外部触发工具。
+Server 只暴露四个静态工具，vault 在启动时固定。`mindos_wiki_init` 默认 preview，只有参数 `apply: true` 才写入。使用 `npm install --omit=optional` 的 CLI 没有 MCP SDK，但其他命令不受影响。
 
 ## 完成检查
 
-```bash
-uv run python examples/run_lint_job.py --vault ./my-mind-os --json
-```
-
-确认返回 `status: succeeded`。再比较 CLI、MCP 或 Agent 对同一 lint Action 的 `status`、`changed`、`artifacts` 和 `metrics`。
+确认 Skill 重复安装返回 `noop`，`jobs list` 返回六个任务；MCP 宿主能列出四个工具，并且 CLI 与 MCP lint 的 v1 JSON 领域字段一致。

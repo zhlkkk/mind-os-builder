@@ -1,0 +1,16 @@
+version: v1
+commands: contracts/commands.yaml
+result_schema: contracts/cli-result.schema.json
+tools:
+  - name: mindos_wiki_lint
+    command: wiki.lint
+    description: 检查固定 vault 的 Wiki，不修改文件。
+  - name: mindos_wiki_query
+    command: wiki.query
+    description: 查询固定 vault 的已编译 Wiki。
+  - name: mindos_books_validate
+    command: books.validate
+    description: 校验固定 vault 的 Book Base。
+  - name: mindos_wiki_init
+    command: wiki.init
+    description: 预演或显式初始化固定 vault。

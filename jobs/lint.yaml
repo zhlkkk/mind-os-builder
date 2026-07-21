@@ -1,16 +1,9 @@
-api_version: mindos.dev/v1
-id: lint
-action: wiki.lint
+version: v1
+name: Wiki 定期检查
 inputs:
-  root: {required: true}
-outputs: [run-envelope]
-effects: [read:vault]
-default_mode: dry-run
-concurrency_key: "vault:{root}:wiki"
-timeout_seconds: 120
-retry: {attempts: 1}
-success_statuses: [succeeded]
-required_capabilities: [wiki.read]
-required_secrets: []
-schedule_hint: daily
-timezone: local
+  vault: /绝对路径/Mind-OS
+command: [mindos, wiki, lint, "{vault}", --json]
+effects: [workspace.read]
+concurrency: single
+retry: {max_attempts: 1}
+schedule: daily

@@ -1,0 +1,9 @@
+{
+  "version": "v1",
+  "cases": [
+    {"name": "single-tool", "available": ["web-search"], "failed": [], "expected": "complete-with-explicit-limit"},
+    {"name": "complementary-tools", "available": ["web-search", "web-fetch", "social-search"], "failed": [], "expected": "complete"},
+    {"name": "no-tool", "available": [], "failed": [], "expected": "stop-without-report"},
+    {"name": "partial-failure", "available": ["web-search", "web-fetch"], "failed": ["social-search"], "expected": "partial-with-evidence-gaps"}
+  ]
+}
