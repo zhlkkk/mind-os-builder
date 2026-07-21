@@ -1,4 +1,5 @@
 import { readFile, stat, unlink } from "node:fs/promises";
+import { parseContract } from "../lib/contracts.js";
 import { acquireVaultLock } from "../lib/lock.js";
 import { MindosError, resolveReadPath, resolveWritePath } from "../lib/paths.js";
 import { atomicWrite, contentHash } from "../lib/write.js";
@@ -41,24 +42,19 @@ const markdownDestination = (value: string): string => `<${value.replace(/[()[\]
 const marker = (source: Source, id: string): string => `<!-- mindos:collect:${source}:${id} -->`;
 
 function validateDecisions(batch: Batch, input: DecisionInput): Map<string, Decision> {
-  if (input.version !== "v1" || input.baseline_hash !== batch.baseline_hash || input.decisions.length !== batch.signals.length) {
+  if (input.baseline_hash !== batch.baseline_hash || input.decisions.length !== batch.signals.length) {
     throw new MindosError("mindos.input.invalid", "decisions do not match the collection batch");
   }
   const expected = new Set(batch.signals.map((signal) => signal.id)); const decisions = new Map<string, Decision>();
-  for (const raw of input.decisions as unknown[]) {
-    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) throw new MindosError("mindos.input.invalid", "collection decisions are invalid");
-    const decision = raw as Decision;
-    const keys = Object.keys(decision); const keep = decision.decision === "keep";
-    if (!expected.has(decision.id) || decisions.has(decision.id) || !["keep", "discard"].includes(decision.decision)
-      || typeof decision.reason !== "string" || decision.reason.trim().length === 0 || decision.reason.length > 2_000
-      || keys.some((key) => !["id", "decision", "reason", "display_title", "display_summary", "translated", "category", "tags"].includes(key))) {
+  for (const decision of input.decisions) {
+    const keep = decision.decision === "keep";
+    if (!expected.has(decision.id) || decisions.has(decision.id) || decision.reason.trim().length === 0 || decision.reason.length > 2_000) {
       throw new MindosError("mindos.input.invalid", "collection decisions are invalid");
     }
-    const displayKeys = [decision.display_title, decision.display_summary, decision.translated, decision.category, decision.tags];
-    if ((keep && (typeof decision.display_title !== "string" || decision.display_title.trim() === "" || decision.display_title.length > 500 || typeof decision.display_summary !== "string" || decision.display_summary.trim() === "" || decision.display_summary.length > 4_000
-      || typeof decision.translated !== "boolean" || typeof decision.category !== "string" || !(decision.category in batch.config.categories)
-      || (decision.tags !== undefined && (!Array.isArray(decision.tags) || decision.tags.length > 8 || new Set(decision.tags).size !== decision.tags.length || decision.tags.some((tag) => typeof tag !== "string" || tag.trim() === "" || tag.length > 80)))))
-      || (!keep && displayKeys.some((value) => value !== undefined))) {
+    if (keep && (decision.display_title?.trim() === "" || (decision.display_title?.length ?? 0) > 500
+      || decision.display_summary?.trim() === "" || (decision.display_summary?.length ?? 0) > 4_000
+      || decision.category === undefined || !(decision.category in batch.config.categories)
+      || decision.tags?.some((tag) => tag.trim() === "" || tag.length > 80))) {
       throw new MindosError("mindos.input.invalid", "collection decision display fields are invalid");
     }
     decisions.set(decision.id, decision);
@@ -99,7 +95,8 @@ async function setReceipt(root: string, state: JsonState, id: string, receipt: R
   receipt.phase = phase; state.value[id] = receipt; await writeState(root, "receipts", state); await hook?.(phase);
 }
 
-export async function commitCollection(root: string, source: Source, input: DecisionInput, options: CommitOptions): Promise<CommitOutcome> {
+export async function commitCollection(root: string, source: Source, value: unknown, options: CommitOptions): Promise<CommitOutcome> {
+  const input = parseContract<DecisionInput>("collectionDecisions", value, "collection decisions are invalid");
   const now = options.now ?? Date.now(); const decisionHash = contentHash(Buffer.from(JSON.stringify(input), "utf8"));
   const lock = await acquireVaultLock(root, `.mindos/locks/collect-${source}.lock`);
   try {

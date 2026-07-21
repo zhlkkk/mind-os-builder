@@ -50,6 +50,7 @@ test("Distill 拒绝不完整、未知角色、非法 Callout 和过时基线", 
   const triggers = scan.data.triggers as Array<{ trigger_id: string; persona: string }>; const path = join(root, "responses.json");
   const base = { version: "v1", baseline_hash: scan.data.baseline_hash, responses: triggers.map((item) => ({ trigger_id: item.trigger_id, persona: item.persona, callout: callouts[item.persona] })) };
   await writeFile(path, JSON.stringify({ ...base, responses: base.responses.slice(0, 1) })); assert.equal((await run(["distill", "commit", vault, source, path, "--json"])).error?.code, "mindos.input.invalid");
+  await writeFile(path, JSON.stringify({ ...base, extra: true })); assert.equal((await run(["distill", "commit", vault, source, path, "--json"])).error?.code, "mindos.input.invalid");
   await writeFile(path, JSON.stringify({ ...base, responses: [{ ...base.responses[0], persona: "prism", callout: callouts.prism }, base.responses[1]] })); assert.equal((await run(["distill", "commit", vault, source, path, "--json"])).error?.code, "mindos.input.invalid");
   await writeFile(path, JSON.stringify({ ...base, responses: [{ ...base.responses[0], callout: "> 非法" }, base.responses[1]] })); assert.equal((await run(["distill", "commit", vault, source, path, "--json"])).error?.code, "mindos.input.invalid");
   await writeFile(path, JSON.stringify(base)); await writeFile(journal, "用户改写。 #lumina\n\n行动。 #vector\n");

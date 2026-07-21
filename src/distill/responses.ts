@@ -1,6 +1,7 @@
+import { parseContract } from "../lib/contracts.js";
 import { validateMarkdown } from "../lib/input.js";
 import { MindosError } from "../lib/paths.js";
-import { PERSONAS, type DistillTrigger, type Persona } from "./scan.js";
+import { type DistillTrigger, type Persona } from "./scan.js";
 
 export type DistillResponse = { trigger_id: string; persona: Persona; callout: string };
 export type DistillResponseInput = { version: "v1"; baseline_hash: string; responses: DistillResponse[] };
@@ -18,22 +19,9 @@ function invalid(message: string): never {
 }
 
 export function parseDistillResponses(value: unknown): DistillResponseInput {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) invalid("response envelope must be an object");
-  const envelope = value as Record<string, unknown>;
-  if (envelope.version !== "v1" || typeof envelope.baseline_hash !== "string" || !/^[a-f0-9]{64}$/u.test(envelope.baseline_hash)
-    || !Array.isArray(envelope.responses) || envelope.responses.length > 500
-    || Object.keys(envelope).some((key) => !["version", "baseline_hash", "responses"].includes(key))) {
-    invalid("response envelope is invalid");
-  }
-  const responses: DistillResponse[] = envelope.responses.map((raw): DistillResponse => {
-    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) invalid("distill response is invalid");
-    const item = raw as Record<string, unknown>;
-    if (typeof item.trigger_id !== "string" || !/^distill:v1:[a-f0-9]{20}$/u.test(item.trigger_id)
-      || typeof item.persona !== "string" || !PERSONAS.includes(item.persona as Persona)
-      || typeof item.callout !== "string" || Object.keys(item).some((key) => !["trigger_id", "persona", "callout"].includes(key))) {
-      invalid("distill response is invalid");
-    }
-    const persona = item.persona as Persona;
+  const envelope = parseContract<DistillResponseInput>("distillResponses", value, "response envelope is invalid");
+  const responses: DistillResponse[] = envelope.responses.map((item): DistillResponse => {
+    const persona = item.persona;
     const callout = validateMarkdown(item.callout, 20_000).trim();
     const lines = callout.split("\n");
     if (lines.length < 2 || !HEADERS[persona].test(lines[0] ?? "") || lines.some((line) => !line.startsWith(">"))
@@ -43,7 +31,7 @@ export function parseDistillResponses(value: unknown): DistillResponseInput {
     return { trigger_id: item.trigger_id, persona, callout };
   });
   if (new Set(responses.map((item) => item.trigger_id)).size !== responses.length) invalid("distill responses contain duplicate trigger ids");
-  return { version: "v1", baseline_hash: envelope.baseline_hash, responses };
+  return { ...envelope, responses };
 }
 
 export function validateResponseCoverage(triggers: readonly DistillTrigger[], input: DistillResponseInput): DistillResponse[] {

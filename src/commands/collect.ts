@@ -3,9 +3,9 @@ import type { Command } from "commander";
 import { readJsonInput } from "../lib/input.js";
 import { MindosError } from "../lib/paths.js";
 import { appliedResult, blockedFromError, failedResult, needsAgentResult, noopResult, previewResult, type CliResult } from "../lib/result.js";
-import { batchHash, filterSignals, loadCollectConfig, type Batch, type Decision, type Source } from "../collect/model.js";
+import { batchHash, filterSignals, loadCollectConfig, type Batch, type Source } from "../collect/model.js";
 import { saveBatch, vaultKey } from "../collect/batch.js";
-import { collectionState, commitCollection, type DecisionInput } from "../collect/commit.js";
+import { collectionState, commitCollection } from "../collect/commit.js";
 import { fetchRss } from "../collect/providers/folo.js";
 import { fetchTwitter } from "../collect/providers/opencli.js";
 
@@ -28,19 +28,9 @@ async function prepare(root: string, source: Source): Promise<CliResult> {
   }
 }
 
-function decisionInput(value: unknown): DecisionInput {
-  if (typeof value !== "object" || value === null) throw new MindosError("mindos.input.invalid", "decisions must be a JSON object");
-  const input = value as Record<string, unknown>;
-  if (input.version !== "v1" || typeof input.batch_id !== "string" || typeof input.baseline_hash !== "string" || !Array.isArray(input.decisions)
-    || Object.keys(input).some((key) => !["version", "batch_id", "baseline_hash", "decisions"].includes(key))) {
-    throw new MindosError("mindos.input.invalid", "decision envelope is invalid");
-  }
-  return { version: "v1", batch_id: input.batch_id, baseline_hash: input.baseline_hash, decisions: input.decisions as Decision[] };
-}
-
 async function commit(root: string, source: Source, path: string, apply: boolean): Promise<CliResult> {
   try {
-    const input = decisionInput(await readJsonInput(path, { maxBytes: 1024 * 1024, maxDepth: 12 }));
+    const input = await readJsonInput(path, { maxBytes: 1024 * 1024, maxDepth: 12 });
     const outcome = await commitCollection(root, source, input, { apply });
     if (!apply) return outcome.changed ? previewResult(outcome.data, outcome.artifacts) : noopResult(outcome.data);
     return outcome.changed ? appliedResult(outcome.data, outcome.artifacts) : noopResult(outcome.data);

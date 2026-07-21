@@ -30,6 +30,7 @@ test("Radar prepare 识别日期边界且只提交批准建议", async (context)
   const decisions = { version: "v1", batch_id: prepared.data.batch_id, baseline_hash: prepared.data.baseline_hash, decisions: suggestions.map((item) => ({ suggestion_id: item.suggestion_id, decision: item.title === "待编译" ? "approve" : "reject" })) };
   const path = join(root, "decisions.json"); await writeFile(path, JSON.stringify({ ...decisions, decisions: decisions.decisions.slice(0, 1) }));
   assert.equal((await run(["radar", "commit", vault, path, "--json"])).error?.code, "mindos.input.invalid");
+  await writeFile(path, JSON.stringify({ ...decisions, extra: true })); assert.equal((await run(["radar", "commit", vault, path, "--json"])).error?.code, "mindos.input.invalid");
   await writeFile(path, JSON.stringify(decisions)); assert.equal((await run(["radar", "commit", vault, path, "--json"])).state, "preview"); assert.equal(await readFile(target, "utf8"), original);
   assert.equal((await run(["radar", "commit", vault, path, "--apply", "--json"])).state, "applied"); const updated = await readFile(target, "utf8");
   assert.match(updated, /建议优先补编译/u); assert.doesNotMatch(updated, /建议降级/u); assert.equal((await run(["radar", "commit", vault, path, "--apply", "--json"])).state, "noop");

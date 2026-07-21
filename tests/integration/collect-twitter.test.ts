@@ -30,6 +30,7 @@ test("Twitter 完成 prepare、校验、preview、apply 与 replay", async (cont
   assert.equal(run(["collect", "twitter", "commit", vault, path, "--json"], env).error?.code, "mindos.input.invalid");
   await writeFile(path, JSON.stringify({ ...input, decisions: [{ ...input.decisions[0], category: "unknown" }] }));
   assert.equal(run(["collect", "twitter", "commit", vault, path, "--json"], env).error?.code, "mindos.input.invalid");
+  await writeFile(path, JSON.stringify({ ...input, extra: true })); assert.equal(run(["collect", "twitter", "commit", vault, path, "--json"], env).error?.code, "mindos.input.invalid");
   await writeFile(path, JSON.stringify(input));
   assert.equal(run(["collect", "twitter", "commit", other, path, "--json"], env).error?.code, "mindos.state.batch_missing");
   assert.equal(run(["collect", "twitter", "commit", vault, path, "--json"], env).state, "preview");
