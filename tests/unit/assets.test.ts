@@ -24,7 +24,7 @@ test("资产递归读取点文件并拒绝符号链接", async (context) => {
   await writeFile(join(root, "visible.txt"), "visible");
   assert.deepEqual((await readAssetTree(root)).map((file) => file.relative), [".hidden/nested.txt", "visible.txt"]);
 
-  await symlink(outside, join(root, "linked"));
+  await symlink(outside, join(root, ".hidden", "linked"));
   await assert.rejects(
     readAssetTree(root),
     (error: unknown) => error instanceof MindosError && error.code === "mindos.filesystem.symlink",

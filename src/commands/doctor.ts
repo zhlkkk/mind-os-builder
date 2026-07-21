@@ -3,7 +3,7 @@ import { previewResult, type CliResult } from "../lib/result.js";
 
 async function isAvailable(command: string): Promise<boolean> {
   try {
-    await runSubprocess({ command, args: ["--version"], timeoutMs: 1_000, maxStdoutBytes: 64 * 1024, maxStderrBytes: 64 * 1024 });
+    await runSubprocess({ command, args: ["--version"], timeoutMs: 1_000, maxStdoutBytes: 64 * 1024 });
     return true;
   } catch {
     return false;

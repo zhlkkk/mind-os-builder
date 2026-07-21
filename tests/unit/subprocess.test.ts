@@ -4,8 +4,9 @@ import { MindosError } from "../../src/lib/paths.js";
 import { runJsonSubprocess, runSubprocess } from "../../src/lib/subprocess.js";
 
 test("子进程仅执行 argv 并返回输出", async () => {
-  const completed = await runSubprocess({ command: process.execPath, args: ["-e", "process.stdout.write('ok')"] });
-  assert.equal(completed.stdout, "ok");
+  const argument = "; echo injected | $(touch never) `whoami`";
+  const completed = await runSubprocess({ command: process.execPath, args: ["-e", "process.stdout.write(process.argv[1])", argument] });
+  assert.equal(completed.stdout, argument);
   assert.equal(completed.exitCode, 0);
 });
 
@@ -32,6 +33,14 @@ test("子进程超量输出失败", async () => {
   );
   await assert.rejects(
     () => runSubprocess({ command: process.execPath, args: ["-e", "process.stderr.write('x'.repeat(32))"], maxStderrBytes: 8 }),
+    (error: unknown) => error instanceof MindosError && error.code === "mindos.provider.output_too_large",
+  );
+  await assert.rejects(
+    () => runSubprocess({ command: process.execPath, args: ["-e", "process.stderr.write('x'.repeat(32)); setInterval(() => {}, 1000)"], maxStderrBytes: 8, timeoutMs: 100 }),
+    (error: unknown) => error instanceof MindosError && error.code === "mindos.provider.output_too_large",
+  );
+  await assert.rejects(
+    () => runSubprocess({ command: process.execPath, args: ["-e", "process.stderr.write('x'.repeat(32)); process.exit(2)"], maxStderrBytes: 8 }),
     (error: unknown) => error instanceof MindosError && error.code === "mindos.provider.output_too_large",
   );
 });

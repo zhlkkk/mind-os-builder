@@ -10,12 +10,18 @@ const wikilink = /\[\[([^\]|#]+)(?:\|[^\]]+)?\]\]/gu;
 
 type Issue = { code: string; path: string; message: string; level: "error" | "warning" };
 
-async function pagesAt(root: string): Promise<string[]> {
-  return (await readdir(root, { recursive: true, withFileTypes: true })).flatMap((entry) => {
-    const path = join(entry.parentPath, entry.name); const relative = relativePath(root, path).replaceAll("\\", "/");
-    return entry.isFile() && entry.name.endsWith(".md") && !systemFiles.has(entry.name)
-      && !relative.split("/").slice(0, -1).includes("insights") ? [path] : [];
-  }).sort((left, right) => left.localeCompare(right));
+async function pagesAt(root: string, current = root): Promise<string[]> {
+  const pages: string[] = [];
+  for (const entry of await readdir(current, { withFileTypes: true })) {
+    const path = join(current, entry.name);
+    if (entry.isSymbolicLink()) continue;
+    if (entry.isDirectory()) {
+      if (entry.name !== "insights") pages.push(...await pagesAt(root, path));
+    } else if (entry.isFile() && entry.name.endsWith(".md") && !systemFiles.has(entry.name)) {
+      pages.push(path);
+    }
+  }
+  return pages.sort((left, right) => left.localeCompare(right));
 }
 
 function frontmatter(content: string): Record<string, unknown> | undefined {
