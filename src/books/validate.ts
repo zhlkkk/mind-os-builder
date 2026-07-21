@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { parse } from "yaml";
+import { parseFrontmatter } from "../lib/frontmatter.js";
 import { resolveReadPath } from "../lib/paths.js";
 import { blockedFromError, noopResult, previewResult, type CliResult } from "../lib/result.js";
 
@@ -33,19 +34,17 @@ function isIsoDate(value: unknown): boolean {
 
 function pageIssues(relative: string, content: string): Issue[] {
   const issues: Issue[] = [];
-  if (!content.startsWith("---\n")) {
+  const parsed = parseFrontmatter(content);
+  if (!parsed.ok && parsed.reason === "missing") {
     return [{ code: "missing_frontmatter", path: relative, message: "缺少 YAML frontmatter" }];
   }
-  const marker = content.indexOf("\n---\n", 4);
-  if (marker < 0) {
+  if (!parsed.ok && parsed.reason === "unclosed") {
     return [{ code: "invalid_frontmatter", path: relative, message: "frontmatter 未闭合" }];
   }
-  let metadata: unknown;
-  try {
-    metadata = parse(content.slice(4, marker));
-  } catch {
+  if (!parsed.ok) {
     return [{ code: "invalid_frontmatter", path: relative, message: "frontmatter 无效" }];
   }
+  const metadata = parsed.metadata;
   if (typeof metadata !== "object" || metadata === null) {
     return [{ code: "invalid_frontmatter", path: relative, message: "frontmatter 必须是对象" }];
   }

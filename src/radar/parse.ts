@@ -1,5 +1,5 @@
 import { readdir, readFile, stat } from "node:fs/promises";
-import { join, posix } from "node:path";
+import { join, posix, relative as relativePath } from "node:path";
 import { MindosError, resolveReadPath } from "../lib/paths.js";
 import { contentHash } from "../lib/write.js";
 
@@ -88,19 +88,16 @@ async function readPage(root: string, relative: string): Promise<RadarPage> {
 
 async function wikiMarkdownBasenames(root: string): Promise<Map<string, string[]>> {
   const wiki = await resolveReadPath(root, "wiki"); const matches = new Map<string, string[]>();
-  async function visit(current: string, relative: string): Promise<void> {
-    const entries = (await readdir(current, { withFileTypes: true })).sort((left, right) => left.name.localeCompare(right.name));
-    for (const entry of entries) {
-      if (entry.isSymbolicLink()) continue;
-      const absolute = join(current, entry.name); const path = posix.join(relative, entry.name);
-      if (entry.isDirectory()) {
-        if (path !== "wiki/insights") await visit(absolute, path);
-      } else if (entry.isFile() && entry.name.endsWith(".md")) {
-        const pages = matches.get(entry.name) ?? []; pages.push(path); matches.set(entry.name, pages);
-      }
+  try {
+    const entries = (await readdir(wiki, { recursive: true, withFileTypes: true })).flatMap((entry) => {
+      const relative = relativePath(wiki, join(entry.parentPath, entry.name)).replaceAll("\\", "/");
+      return entry.isFile() && entry.name.endsWith(".md") && !relative.startsWith("insights/") ? [relative] : [];
+    }).sort((left, right) => left.localeCompare(right));
+    for (const relative of entries) {
+      const name = posix.basename(relative); const path = posix.join("wiki", relative);
+      const pages = matches.get(name) ?? []; pages.push(path); matches.set(name, pages);
     }
-  }
-  try { await visit(wiki, "wiki"); } catch (error: unknown) {
+  } catch (error: unknown) {
     if (error instanceof MindosError) throw error;
     throw new MindosError("mindos.input.invalid", "radar wikilink targets cannot be resolved");
   }

@@ -1,5 +1,5 @@
 import { lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, relative as relativePath, resolve } from "node:path";
 import { assetPath, readAssetTree, type AssetFile } from "../lib/assets.js";
 import { acquireLock } from "../lib/lock.js";
 import { MindosError } from "../lib/paths.js";
@@ -33,28 +33,18 @@ async function vaultMatches(vault: string, assets: readonly AssetFile[]): Promis
       allowedDirectories.add(parts.slice(0, index).join("/"));
     }
   }
-  async function inspect(current: string): Promise<boolean> {
-    for (const entry of await readdir(current, { withFileTypes: true })) {
-      const path = join(current, entry.name);
-      const relative = path.slice(vault.length + 1).replaceAll("\\", "/");
-      if (entry.isSymbolicLink()) {
-        return false;
-      }
-      if (entry.isDirectory()) {
-        if (!allowedDirectories.has(relative)) {
-          return false;
-        }
-        if (!await inspect(path)) {
-          return false;
-        }
-      } else if (!entry.isFile() || !expected.has(relative)) {
-        return false;
-      }
+  for (const entry of await readdir(vault, { recursive: true, withFileTypes: true })) {
+    const relative = relativePath(vault, join(entry.parentPath, entry.name)).replaceAll("\\", "/");
+    if (entry.isSymbolicLink()) {
+      return false;
     }
-    return true;
-  }
-  if (!await inspect(vault)) {
-    return false;
+    if (entry.isDirectory()) {
+      if (!allowedDirectories.has(relative)) {
+        return false;
+      }
+    } else if (!entry.isFile() || !expected.has(relative)) {
+      return false;
+    }
   }
   return (await Promise.all(assets.map(async (asset) => {
     try {

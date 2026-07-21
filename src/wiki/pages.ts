@@ -1,6 +1,6 @@
 import { lstat, readdir, readFile } from "node:fs/promises";
 import { dirname, join, relative as relativePath } from "node:path";
-import { parse } from "yaml";
+import { parseFrontmatter } from "../lib/frontmatter.js";
 import { acquireVaultLock } from "../lib/lock.js";
 import { validateMarkdown } from "../lib/input.js";
 import { MindosError, resolveReadPath } from "../lib/paths.js";
@@ -16,19 +16,17 @@ function validatePage(relative: string, content: string): void {
     throw new MindosError("mindos.filesystem.protected_path", "page path is outside supported Wiki sections");
   }
   validateMarkdown(content);
-  if (!content.startsWith("---\n")) {
+  const parsed = parseFrontmatter(content);
+  if (!parsed.ok && parsed.reason === "missing") {
     throw new MindosError("mindos.input.invalid", "page is missing YAML frontmatter");
   }
-  const marker = content.indexOf("\n---\n", 4);
-  if (marker < 0) {
+  if (!parsed.ok && parsed.reason === "unclosed") {
     throw new MindosError("mindos.input.invalid", "page YAML frontmatter is not closed");
   }
-  let metadata: unknown;
-  try {
-    metadata = parse(content.slice(4, marker));
-  } catch {
+  if (!parsed.ok) {
     throw new MindosError("mindos.input.invalid", "page YAML frontmatter is invalid");
   }
+  const metadata = parsed.metadata;
   if (typeof metadata !== "object" || metadata === null || ![...fields].every((field) => Object.hasOwn(metadata, field))) {
     throw new MindosError("mindos.input.invalid", "page frontmatter is incomplete");
   }
@@ -133,22 +131,13 @@ export async function ingestWikiPage(root: string, relative: string, content: st
   }
 }
 
-async function pagesAt(root: string, current = root, includeInsights = false): Promise<string[]> {
-  const pages: string[] = [];
-  for (const entry of await readdir(current, { withFileTypes: true })) {
-    const path = join(current, entry.name);
-    if (entry.isSymbolicLink()) {
-      continue;
-    }
-    if (entry.isDirectory()) {
-      if (includeInsights || entry.name !== "insights") {
-        pages.push(...await pagesAt(root, path, includeInsights));
-      }
-    } else if (entry.isFile() && entry.name.endsWith(".md") && (!systemPages.has(entry.name) || entry.name === "index.md")) {
-      pages.push(path);
-    }
-  }
-  return pages.sort((left, right) => left.localeCompare(right));
+async function pagesAt(root: string, includeInsights = false): Promise<string[]> {
+  return (await readdir(root, { recursive: true, withFileTypes: true })).flatMap((entry) => {
+    const path = join(entry.parentPath, entry.name); const relative = relativePath(root, path).replaceAll("\\", "/");
+    const excluded = !includeInsights && relative.split("/").slice(0, -1).includes("insights");
+    return entry.isFile() && entry.name.endsWith(".md") && !excluded
+      && (!systemPages.has(entry.name) || entry.name === "index.md") ? [path] : [];
+  }).sort((left, right) => left.localeCompare(right));
 }
 
 export async function queryWiki(root: string, query: string, limit: number): Promise<CliResult> {
@@ -162,7 +151,7 @@ export async function queryWiki(root: string, query: string, limit: number): Pro
     if (!metadata.isDirectory()) {
       throw new MindosError("mindos.filesystem.invalid_root", "vault is missing Wiki directory");
     }
-    const candidates = await pagesAt(wiki, wiki, true);
+    const candidates = await pagesAt(wiki, true);
     const index = join(wiki, "index.md");
     if (candidates.includes(index)) {
       candidates.splice(candidates.indexOf(index), 1);

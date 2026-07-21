@@ -1,6 +1,6 @@
 import { lstat, readFile, realpath, stat } from "node:fs/promises";
 import { relative, sep } from "node:path";
-import { parse } from "yaml";
+import { parseFrontmatter } from "../lib/frontmatter.js";
 import { validateHttpUrl, validateMarkdown } from "../lib/input.js";
 import { MindosError } from "../lib/paths.js";
 
@@ -33,12 +33,12 @@ function stringList(value: unknown, maxItems: number, maxLength: number): string
 }
 
 function parseMetadata(content: string): { metadata: ResearchMetadata; body: string } {
-  if (!content.startsWith("---\n")) throw new MindosError("mindos.input.invalid", "research report is missing YAML frontmatter");
-  const boundary = content.indexOf("\n---\n", 4);
-  if (boundary < 0) throw new MindosError("mindos.input.invalid", "research report frontmatter is not closed");
-  let value: unknown;
-  if (boundary > 64 * 1024) throw new MindosError("mindos.input.invalid", "research report frontmatter is too large");
-  try { value = parse(content.slice(4, boundary), { maxAliasCount: 0 }); } catch { throw new MindosError("mindos.input.invalid", "research report frontmatter is invalid"); }
+  const parsed = parseFrontmatter(content, { maxAliasCount: 0, maxLength: 64 * 1024 });
+  if (!parsed.ok && parsed.reason === "missing") throw new MindosError("mindos.input.invalid", "research report is missing YAML frontmatter");
+  if (!parsed.ok && parsed.reason === "unclosed") throw new MindosError("mindos.input.invalid", "research report frontmatter is not closed");
+  if (!parsed.ok && parsed.reason === "too_large") throw new MindosError("mindos.input.invalid", "research report frontmatter is too large");
+  if (!parsed.ok) throw new MindosError("mindos.input.invalid", "research report frontmatter is invalid");
+  const value = parsed.metadata;
   if (typeof value !== "object" || value === null || Array.isArray(value)
     || Object.keys(value).some((key) => !fields.has(key))) throw new MindosError("mindos.input.invalid", "research report frontmatter fields are invalid");
   const raw = value as Record<string, unknown>; const tools = stringList(raw.tools, 20, 128); const sources = stringList(raw.sources, 200, 2_048);
@@ -48,7 +48,7 @@ function parseMetadata(content: string): { metadata: ResearchMetadata; body: str
     || tools === undefined || sources === undefined) throw new MindosError("mindos.input.invalid", "research report frontmatter values are invalid");
   for (const source of sources) validateHttpUrl(source);
   return { metadata: { version: "v1", topic: raw.topic.trim(), mode: raw.mode as ResearchMetadata["mode"], researched_at: raw.researched_at,
-    evidence_status: raw.evidence_status as ResearchMetadata["evidence_status"], tools, sources }, body: content.slice(boundary + 5) };
+    evidence_status: raw.evidence_status as ResearchMetadata["evidence_status"], tools, sources }, body: parsed.body };
 }
 
 export function validateResearchTarget(target: string): string {

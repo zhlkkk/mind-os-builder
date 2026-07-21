@@ -1,6 +1,6 @@
 import { lstat, readdir, readFile } from "node:fs/promises";
 import { basename, dirname, join, relative as relativePath } from "node:path";
-import { parse } from "yaml";
+import { parseFrontmatter } from "../lib/frontmatter.js";
 import { MindosError, resolveReadPath } from "../lib/paths.js";
 import { blockedFromError, noopResult, previewResult, type CliResult } from "../lib/result.js";
 
@@ -10,38 +10,19 @@ const wikilink = /\[\[([^\]|#]+)(?:\|[^\]]+)?\]\]/gu;
 
 type Issue = { code: string; path: string; message: string; level: "error" | "warning" };
 
-async function pagesAt(root: string, current = root): Promise<string[]> {
-  const pages: string[] = [];
-  for (const entry of await readdir(current, { withFileTypes: true })) {
-    const path = join(current, entry.name);
-    if (entry.isSymbolicLink()) {
-      continue;
-    }
-    if (entry.isDirectory()) {
-      if (entry.name !== "insights") {
-        pages.push(...await pagesAt(root, path));
-      }
-    } else if (entry.isFile() && entry.name.endsWith(".md") && !systemFiles.has(entry.name)) {
-      pages.push(path);
-    }
-  }
-  return pages.sort((left, right) => left.localeCompare(right));
+async function pagesAt(root: string): Promise<string[]> {
+  return (await readdir(root, { recursive: true, withFileTypes: true })).flatMap((entry) => {
+    const path = join(entry.parentPath, entry.name); const relative = relativePath(root, path).replaceAll("\\", "/");
+    return entry.isFile() && entry.name.endsWith(".md") && !systemFiles.has(entry.name)
+      && !relative.split("/").slice(0, -1).includes("insights") ? [path] : [];
+  }).sort((left, right) => left.localeCompare(right));
 }
 
 function frontmatter(content: string): Record<string, unknown> | undefined {
-  if (!content.startsWith("---\n")) {
-    return undefined;
-  }
-  const marker = content.indexOf("\n---\n", 4);
-  if (marker < 0) {
-    return undefined;
-  }
-  try {
-    const parsed: unknown = parse(content.slice(4, marker));
-    return typeof parsed === "object" && parsed !== null ? parsed as Record<string, unknown> : undefined;
-  } catch {
-    return undefined;
-  }
+  const parsed = parseFrontmatter(content);
+  return parsed.ok && typeof parsed.metadata === "object" && parsed.metadata !== null
+    ? parsed.metadata as Record<string, unknown>
+    : undefined;
 }
 
 export async function lintWiki(root: string): Promise<CliResult> {

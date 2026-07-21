@@ -8,16 +8,14 @@ const assetNames = new Set([".agents/skills", "agents", "adapters", "contracts",
 
 export type AssetFile = { relative: string; content: Uint8Array };
 
-export async function readAssetTree(root: string, current = root): Promise<AssetFile[]> {
+export async function readAssetTree(root: string): Promise<AssetFile[]> {
   const assets: AssetFile[] = [];
-  for (const entry of await readdir(current, { withFileTypes: true })) {
-    const path = join(current, entry.name);
+  for (const entry of await readdir(root, { recursive: true, withFileTypes: true })) {
+    const path = join(entry.parentPath, entry.name);
     if (entry.isSymbolicLink()) {
       throw new MindosError("mindos.filesystem.symlink", "package asset contains a symbolic link");
     }
-    if (entry.isDirectory()) {
-      assets.push(...await readAssetTree(root, path));
-    } else if (entry.isFile()) {
+    if (entry.isFile()) {
       assets.push({ relative: relative(root, path).replaceAll("\\", "/"), content: await readFile(path) });
     }
   }
