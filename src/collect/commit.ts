@@ -95,8 +95,11 @@ async function setReceipt(root: string, state: JsonState, id: string, receipt: R
   receipt.phase = phase; state.value[id] = receipt; await writeState(root, "receipts", state); await hook?.(phase);
 }
 
-export async function commitCollection(root: string, source: Source, value: unknown, options: CommitOptions): Promise<CommitOutcome> {
-  const input = parseContract<DecisionInput>("collectionDecisions", value, "collection decisions are invalid");
+export function parseCollectionDecisions(value: unknown): DecisionInput {
+  return parseContract("collectionDecisions", value, "collection decisions are invalid");
+}
+
+export async function commitCollection(root: string, source: Source, input: DecisionInput, options: CommitOptions): Promise<CommitOutcome> {
   const now = options.now ?? Date.now(); const decisionHash = contentHash(Buffer.from(JSON.stringify(input), "utf8"));
   const lock = await acquireVaultLock(root, `.mindos/locks/collect-${source}.lock`);
   try {

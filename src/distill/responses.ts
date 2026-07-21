@@ -19,7 +19,7 @@ function invalid(message: string): never {
 }
 
 export function parseDistillResponses(value: unknown): DistillResponseInput {
-  const envelope = parseContract<DistillResponseInput>("distillResponses", value, "response envelope is invalid");
+  const envelope = parseContract("distillResponses", value, "response envelope is invalid");
   const responses: DistillResponse[] = envelope.responses.map((item): DistillResponse => {
     const persona = item.persona;
     const callout = validateMarkdown(item.callout, 20_000).trim();

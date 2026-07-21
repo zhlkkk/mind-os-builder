@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Ajv, type ValidateFunction } from "ajv";
+import type { DecisionInput } from "../collect/commit.js";
+import type { DistillResponseInput } from "../distill/responses.js";
+import type { RadarDecisionInput } from "../radar/decisions.js";
 import { assetPath } from "./assets.js";
 import { MindosError } from "./paths.js";
 
@@ -11,6 +14,11 @@ const files = {
 } as const;
 
 export type ContractName = keyof typeof files;
+type ContractTypes = {
+  collectionDecisions: DecisionInput;
+  distillResponses: DistillResponseInput;
+  radarDecisions: RadarDecisionInput;
+};
 
 const ajv = new Ajv({ allErrors: true });
 const validators = new Map<ContractName, ValidateFunction>();
@@ -24,7 +32,7 @@ function validator(name: ContractName): ValidateFunction {
   return compiled;
 }
 
-export function parseContract<T>(name: ContractName, value: unknown, message: string): T {
+export function parseContract<N extends ContractName>(name: N, value: unknown, message: string): ContractTypes[N] {
   if (!validator(name)(value)) throw new MindosError("mindos.input.invalid", message);
-  return value as T;
+  return value as ContractTypes[N];
 }

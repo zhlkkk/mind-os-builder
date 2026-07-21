@@ -5,7 +5,7 @@ import { MindosError } from "../lib/paths.js";
 import { appliedResult, blockedFromError, failedResult, needsAgentResult, noopResult, previewResult, type CliResult } from "../lib/result.js";
 import { batchHash, filterSignals, loadCollectConfig, type Batch, type Source } from "../collect/model.js";
 import { saveBatch, vaultKey } from "../collect/batch.js";
-import { collectionState, commitCollection } from "../collect/commit.js";
+import { collectionState, commitCollection, parseCollectionDecisions } from "../collect/commit.js";
 import { fetchRss } from "../collect/providers/folo.js";
 import { fetchTwitter } from "../collect/providers/opencli.js";
 
@@ -30,7 +30,7 @@ async function prepare(root: string, source: Source): Promise<CliResult> {
 
 async function commit(root: string, source: Source, path: string, apply: boolean): Promise<CliResult> {
   try {
-    const input = await readJsonInput(path, { maxBytes: 1024 * 1024, maxDepth: 12 });
+    const input = parseCollectionDecisions(await readJsonInput(path, { maxBytes: 1024 * 1024, maxDepth: 12 }));
     const outcome = await commitCollection(root, source, input, { apply });
     if (!apply) return outcome.changed ? previewResult(outcome.data, outcome.artifacts) : noopResult(outcome.data);
     return outcome.changed ? appliedResult(outcome.data, outcome.artifacts) : noopResult(outcome.data);

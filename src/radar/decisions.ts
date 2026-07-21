@@ -8,7 +8,7 @@ export type RadarDecisionInput = { version: "v1"; batch_id: string; baseline_has
 function invalid(message: string): never { throw new MindosError("mindos.input.invalid", message); }
 
 export function parseRadarDecisions(value: unknown): RadarDecisionInput {
-  const envelope = parseContract<RadarDecisionInput>("radarDecisions", value, "radar decision envelope is invalid");
+  const envelope = parseContract("radarDecisions", value, "radar decision envelope is invalid");
   const decisions = envelope.decisions;
   if (new Set(decisions.map((item) => item.suggestion_id)).size !== decisions.length) invalid("radar decisions contain duplicate suggestion ids");
   return envelope;
