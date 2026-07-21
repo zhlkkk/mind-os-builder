@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, open, readFile, unlink } from "node:fs/promises";
 import { hostname } from "node:os";
 import { dirname } from "node:path";
-import { MindosError } from "./paths.js";
+import { MindosError, resolveWritePath } from "./paths.js";
 
 const DEFAULT_STALE_AFTER_MS = 10 * 60 * 1000;
 
@@ -115,6 +115,13 @@ export async function acquireLock(path: string, options: LockOptions = {}): Prom
     }
   }
   throw lockBlocked();
+}
+
+export async function acquireVaultLock(root: string, relative: string, options: LockOptions = {}): Promise<OperationLock> {
+  const path = await resolveWritePath(root, relative);
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  const checkedPath = await resolveWritePath(root, relative);
+  return acquireLock(checkedPath, options);
 }
 
 export async function releaseLock(path: string, token: string): Promise<void> {

@@ -1,17 +1,27 @@
 # 架构
 
-仓库先以顶层目录表达系统，再由 `mind_os_builder` Python 包提供确定性执行。CLI 是稳定自动化入口；MCP、Skills、自定义 Agent 和外部调度器读取同一 Action Registry，不复制领域逻辑。
+项目是 Skill-first 的薄确定性内核：工作流和提示词在 `.agents/skills/`，CLI 只做可重复的准备、输入校验、路径保护、原子写入、锁和幂等提交。
 
 ```text
-.agents/skills ─┐
-agents ─────────┼─> 外层 Agent 编排 ─┐
-jobs ───────────┘                    │
-                                    ├─> Action Registry ─> 领域模块 ─> vault
-CLI ────────────────────────────────┤
-MCP ────────────────────────────────┘
-data ────────────────────────────────────────────────^ 初始化与模板
+Skills / Agents ── 语义判断 ──┐
+Jobs ───────────── 声明入口 ──┼──> mindos CLI ──> vault / 系统临时目录
+MCP ────────────── 静态转发 ──┘
+外部 CLI / Web / MCP ──> 候选与证据
 ```
 
-顶层 `.agents/skills/`、`agents/`、`jobs/`、`data/` 是唯一规范源。统一资源接口在源码检出时读取这些目录，在 wheel 中读取构建时收入的 `_bundle/`；后者是分发产物，不是第二个维护入口。
+`.agents/skills/`、`agents/`、`data/`、`docs/`、`jobs/` 是人能直接阅读的规范层。npm tarball 只打包这些目录和编译后的 CLI。
 
-写任务遵循 preflight、work、validate、promote、report 生命周期。中间数据进入系统临时目录，只有显式 apply 才能提升到用户 vault。
+## 分阶段工作流
+
+- Twitter/RSS：Provider CLI → prepare → Agent 筛选、翻译、摘要、分类 → commit。
+- Distill：scan → 五角色 Agent 回复 → commit。
+- Radar：prepare → 人工 approve/reject → commit。
+- Tech Research：宿主工具取证与核验 → vault 外候选 Markdown → research commit。
+
+跨 Agent 的批次按当前用户和 vault hash 隔离到系统临时目录。采集与 Radar 批次默认 24 小时失效；精简回执只保存 hash、日期、阶段和目标，用于部分写入恢复，不保存候选正文。
+
+## 写入模型
+
+所有写命令默认 preview，显式 `--apply` 后在操作级锁内重新校验基线。单文件通过同目录临时文件、fsync 和原子发布写入。多文件采集使用精简回执形成可恢复逻辑事务，不宣称物理多文件原子性。
+
+Jobs 不执行，MCP 不生成领域能力，Skills 不直接写 vault。运行层可以替换，CLI JSON 与文件结果保持不变。

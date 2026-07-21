@@ -1,6 +1,5 @@
 import { readFile, stat, unlink } from "node:fs/promises";
-import { join } from "node:path";
-import { acquireLock } from "../lib/lock.js";
+import { acquireVaultLock } from "../lib/lock.js";
 import { MindosError, resolveReadPath, resolveWritePath } from "../lib/paths.js";
 import { atomicWrite, contentHash } from "../lib/write.js";
 import { batchFile, loadBatch } from "./batch.js";
@@ -37,6 +36,8 @@ async function writeState(root: string, name: string, state: JsonState): Promise
 }
 
 const inline = (value: string, limit = 4_000): string => value.slice(0, limit).replace(/[\r\n]+/gu, " ").replace(/([\\`*_[\]<>])/gu, "\\$1");
+const markdownDestination = (value: string): string => `<${value.replace(/[()[\]<>\\\s]/gu, (character) =>
+  [...Buffer.from(character, "utf8")].map((byte) => `%${byte.toString(16).toUpperCase().padStart(2, "0")}`).join(""))}>`;
 const marker = (source: Source, id: string): string => `<!-- mindos:collect:${source}:${id} -->`;
 
 function validateDecisions(batch: Batch, input: DecisionInput): Map<string, Decision> {
@@ -85,7 +86,7 @@ function renderDaily(batch: Batch, decisions: Map<string, Decision>, date: strin
     output = `${output.trimEnd()}\n\n## ${inline(label, 200)}\n`;
     for (const signal of grouped) {
       const decision = decisions.get(signal.id) as Decision;
-      output += `\n${marker(batch.source, signal.id)}\n### ${inline(decision.display_title ?? signal.title, 500)}\n\n${inline(decision.display_summary ?? "")}\n\n- 来源：[${inline(signal.title, 500)}](${signal.url})`;
+      output += `\n${marker(batch.source, signal.id)}\n### ${inline(decision.display_title ?? signal.title, 500)}\n\n${inline(decision.display_summary ?? "")}\n\n- 来源：[${inline(signal.title, 500)}](${markdownDestination(signal.url)})`;
       if (decision.translated) output += `\n- 原文：${inline(signal.title, 500)} — ${inline(signal.content, 1_000)}`;
       if ((decision.tags?.length ?? 0) > 0) output += `\n- 标签：${decision.tags?.map((tag) => `#${inline(tag, 80)}`).join(" ")}`;
       output += "\n";
@@ -100,7 +101,7 @@ async function setReceipt(root: string, state: JsonState, id: string, receipt: R
 
 export async function commitCollection(root: string, source: Source, input: DecisionInput, options: CommitOptions): Promise<CommitOutcome> {
   const now = options.now ?? Date.now(); const decisionHash = contentHash(Buffer.from(JSON.stringify(input), "utf8"));
-  const lock = await acquireLock(join(root, ".mindos", "locks", `collect-${source}.lock`));
+  const lock = await acquireVaultLock(root, `.mindos/locks/collect-${source}.lock`);
   try {
     const receipts = await readState(root, "receipts"); const rawReceipt = receipts.value[input.batch_id];
     const receipt = typeof rawReceipt === "object" && rawReceipt !== null ? rawReceipt as Receipt : undefined;

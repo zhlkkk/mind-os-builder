@@ -1,7 +1,9 @@
 # 合成输入
 
-这里的文件只用于教程和测试，不是完整 vault，也不来自任何人的笔记。先用 `mindos wiki init` 创建目标 vault，再复制需要的合成输入。
+完整离线旅程由 `examples/offline-full-journey.ts` 动态创建临时 vault、Provider 输出和 Agent 决策，不包含任何真实笔记或账号数据。
 
-- `journals/demo.md`：五角色 Distill 触发示例。
-- `wiki/concepts/radar-demo.md`：Tech Radar 日期与等级示例。
-- `fixtures/twitter.json`、`fixtures/rss.xml`：离线 Provider 输入。
+```bash
+npm run smoke
+```
+
+如需手动教学素材，应继续使用合成标题、URL 和日期，并先让 `mindos wiki init` 创建新的目标 vault。

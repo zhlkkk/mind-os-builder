@@ -101,7 +101,7 @@ commands:
     agent_next_step: 校验输入与 effects 后由宿主执行。
     stable_errors: [mindos.input.invalid]
   - name: mcp.serve
-    result_schema: contracts/cli-result.schema.json
+    transport: mcp-stdio
     effects: [workspace.read]
     agent_next_step: 安装可选 MCP 依赖后重试，或直接使用 CLI。
     stable_errors: [mindos.dependency.unavailable, mindos.filesystem.invalid_root]

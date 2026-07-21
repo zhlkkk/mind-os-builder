@@ -6,6 +6,6 @@
 - `books/`：Book Base、书籍模板与合成示例。
 - `collect/`：采集配置和离线 fixture。
 - `research/`：技术调研最终报告模板。
-- `capabilities.yaml`：公开能力清单。
+- `capabilities.yaml`：公开能力发现提示，指向 `contracts/commands.yaml` 静态命令契约；Skills 与 Jobs 分别从 `.agents/skills/` 和 `jobs/` 发现，不提供运行时 Registry。
 
 本目录只能出现合成或公开内容，不得放私人 vault、凭证、真实过滤名单或真实采集结果。

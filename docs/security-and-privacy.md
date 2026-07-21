@@ -1,12 +1,12 @@
 # 安全与隐私
 
-- 目标 vault 在进程启动时固定，所有路径在写入前解析并检查符号链接逃逸。
-- `wiki/insights/` 与 `raw/logseq-import/` 永远只读。
-- 凭证只从环境或操作系统凭证机制读取，不写配置、日志或结果包络。
-- `.mindos/config.yaml` 只能保存密钥环境变量名，不得保存 Key 值；Tech Research 官方端点固定，不接受携带凭证的任意 endpoint 覆盖。
-- Provider 异常跨越隔离边界后只公开脱敏错误码；HTTP 响应正文、请求头和 Key 不进入报告或 `RunEnvelope`。
-- 跨源 HTTP 重定向直接拒绝；付费或创建类 POST 不自动重试，避免凭证、研究上下文和重复计费风险。
-- 外部网页片段和 Provider 输出一律视为不可信数据；传给后续模型时使用显式边界与 system instruction 隔离，最终草稿仍需按引用人工核验。
-- `.mindos/runs/` 仅保存脱敏白名单字段，文件权限限定为当前用户。
-- 网络、付费调用和外部状态变更必须有显式授权。
-- 发布前扫描当前文件、构建产物和准备推送的 Git 历史。
+- vault 根在命令开始时解析；相对路径拒绝遍历、绝对路径和写入途中的符号链接。
+- `wiki/insights/` 与 `raw/logseq-import/` 永远不可写；`raw/research/` 只允许 research commit。
+- 写操作默认 preview，显式 `--apply` 后仍在锁内重查基线。
+- JSON、Markdown、Provider stdout 和本地状态都有大小或深度限制；公开错误不回显外部 stdout/stderr。
+- Agent、网页、订阅和社媒内容全部是不可信输入。提示词不是安全边界，最终由 CLI Schema、路径和完整覆盖规则约束。
+- OpenCLI、Folo 和研究工具由用户安装与认证。Token、Cookie、Key 和账号信息不写入 vault 配置、命令参数、报告或回执。
+- 研究候选必须位于 vault 外；报告记录真实工具和 HTTP(S) 来源，没有工具时不得生成伪报告。
+- 系统临时批次目录为 `0700`、文件为 `0600`，按用户与 vault 隔离。回执不保存候选正文。
+- MCP 只使用本地 stdio，启动时固定 vault；stdout 只承载协议。项目没有远程传输或自动工具注册。
+- npm 发布前运行架构和发布审计，检查私人绝对路径、凭证形态、Python 残留和 tarball 白名单。

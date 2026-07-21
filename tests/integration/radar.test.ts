@@ -47,6 +47,24 @@ test("Radar 全拒绝为 noop，并拒绝跨 vault、路径越界和源变化", 
   assert.equal((await run(["radar", "commit", vault, path, "--apply", "--json"])).error?.code, "mindos.state.conflict");
 });
 
+test("Radar hub 跨目录解析唯一裸链接，并拒绝缺失或重名目标", async (context) => {
+  const vault = await mkdtemp(join(tmpdir(), "mindos-radar-hub-")); context.after(async () => rm(vault, { recursive: true, force: true }));
+  await mkdir(join(vault, "wiki/concepts"), { recursive: true });
+  await writeFile(join(vault, "wiki/index.md"), "# Mind OS\n\n- [[welcome]]\n");
+  await writeFile(join(vault, "wiki/concepts/welcome.md"), page("### 🟢 记录\n**欢迎**\n- 最新信号: 2026-01-01"));
+
+  const prepared = await prepareRadar(vault, [], "wiki/index.md", "2026-07-21");
+  assert.deepEqual(prepared.batch.pages.map((item) => item.path), ["wiki/concepts/welcome.md"]);
+
+  await writeFile(join(vault, "wiki/index.md"), "# Mind OS\n\n- [[missing]]\n");
+  await assert.rejects(prepareRadar(vault, [], "wiki/index.md", "2026-07-21"), (error: unknown) => (error as { code?: string }).code === "mindos.input.invalid");
+
+  await mkdir(join(vault, "wiki/entities"));
+  await writeFile(join(vault, "wiki/entities/welcome.md"), page("### 🟢 记录\n**另一个欢迎**\n- 最新信号: 2026-01-01"));
+  await writeFile(join(vault, "wiki/index.md"), "# Mind OS\n\n- [[welcome]]\n");
+  await assert.rejects(prepareRadar(vault, [], "wiki/index.md", "2026-07-21"), (error: unknown) => (error as { code?: string }).code === "mindos.input.invalid");
+});
+
 test("Radar 临时批次过期后要求重新 prepare", async (context) => {
   const root = await mkdtemp(join(tmpdir(), "mindos-radar-expired-")); context.after(async () => rm(root, { recursive: true, force: true })); await mkdir(join(root, "wiki")); await writeFile(join(root, "wiki/radar.md"), page("### 🟢 记录\n**旧信号**\n- 最新信号: 2026-01-01"));
   const prepared = await prepareRadar(root, ["wiki/radar.md"], undefined, "2026-07-21", 1); const suggestion = prepared.batch.suggestions[0];

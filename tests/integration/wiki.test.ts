@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, symlink, unlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -101,4 +101,25 @@ test("wiki lint、ingest 与 query 保持路径、哈希和受保护目录边界
   const symlinkResult = run(["wiki", "ingest", vault, path, candidate, "--expected-hash", hash(updated), "--apply", "--json"]);
   assert.deepEqual({ ok: symlinkResult.ok, state: symlinkResult.state, code: symlinkResult.error?.code }, { ok: false, state: "blocked", code: "mindos.filesystem.protected_path" });
   assert.equal(await readFile(outside, "utf8"), "outside");
+});
+
+test("wiki ingest 拒绝指向 vault 外的锁目录", async (context) => {
+  const sandbox = await mkdtemp(join(tmpdir(), "mindos-wiki-lock-"));
+  context.after(async () => rm(sandbox, { recursive: true, force: true }));
+  const vault = join(sandbox, "vault");
+  const outside = join(sandbox, "outside");
+  const candidate = join(sandbox, "candidate.md");
+  assert.equal(run(["wiki", "init", vault, "--apply", "--json"]).state, "applied");
+  await mkdir(outside);
+  await symlink(outside, join(vault, ".mindos", "locks"));
+  await writeFile(candidate, "---\ndomain: agents\nsources: []\ncreated: 2026-07-21\nupdated: 2026-07-21\ntags: [agents]\n---\n# Lock Guard\n", "utf8");
+
+  const result = run(["wiki", "ingest", vault, "wiki/concepts/lock-guard.md", candidate, "--apply", "--json"]);
+
+  assert.deepEqual(
+    { ok: result.ok, state: result.state, code: result.error?.code },
+    { ok: false, state: "blocked", code: "mindos.filesystem.protected_path" },
+  );
+  assert.deepEqual(await readdir(outside), []);
+  await assert.rejects(readFile(join(vault, "wiki", "concepts", "lock-guard.md"), "utf8"));
 });

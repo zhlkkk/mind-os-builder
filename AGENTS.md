@@ -18,11 +18,6 @@ Mind OS Builder 公开个人 Mind OS 的搭建方法、行为契约、合成示�
 - `npm run typecheck`
 - `npm run test:contract`
 - `npm run build`
-
-在 U8 完成一次性切换前，Python 实现仍是迁移期行为基线，涉及旧实现的改动还必须运行：
-
-- `uv run ruff check .`
-- `uv run mypy src`
-- `uv run pytest`
-- `uv build`
-- `uv run python scripts/audit_release.py`
+- `npm test`
+- `npm run audit:architecture`
+- `npm run audit:release`

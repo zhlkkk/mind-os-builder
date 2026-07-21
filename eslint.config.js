@@ -16,7 +16,7 @@ export default tseslint.config(
     ignores: ["lib/**"],
   },
   {
-    files: ["tests/**/*.ts"],
+    files: ["tests/**/*.ts", "scripts/**/*.ts", "examples/**/*.ts"],
     rules: {
       "@typescript-eslint/no-floating-promises": "off",
     },

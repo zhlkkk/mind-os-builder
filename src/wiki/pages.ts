@@ -1,7 +1,7 @@
 import { lstat, readdir, readFile } from "node:fs/promises";
 import { dirname, join, relative as relativePath } from "node:path";
 import { parse } from "yaml";
-import { acquireLock } from "../lib/lock.js";
+import { acquireVaultLock } from "../lib/lock.js";
 import { validateMarkdown } from "../lib/input.js";
 import { MindosError, resolveReadPath } from "../lib/paths.js";
 import { atomicWrite, contentHash } from "../lib/write.js";
@@ -100,7 +100,7 @@ export async function ingestWikiPage(root: string, relative: string, content: st
       return previewResult(data, artifacts);
     }
     const key = contentHash(Buffer.from(root, "utf8")).slice(0, 16);
-    const lock = await acquireLock(join(root, ".mindos", "locks", `wiki-${key}.lock`));
+    const lock = await acquireVaultLock(root, `.mindos/locks/wiki-${key}.lock`);
     try {
       const currentAfterLock = await optionalContent(root, relative);
       if (currentAfterLock !== content) {

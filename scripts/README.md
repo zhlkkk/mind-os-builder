@@ -1,6 +1,7 @@
 # Scripts
 
-- `install_harness.py`：把顶层开放 Agent Skills 安装到指定宿主，默认只预演，`--apply` 才原子提交；Distill 的角色引用在系统临时目录中从 `agents/roles/` 物化。
-- `audit_release.py`：扫描工作树和 Git 历史中的私人路径与疑似凭证。
+- `smoke.ts`：在系统临时目录运行完整合成旅程。
+- `audit-architecture.ts`：限制核心 TypeScript 行数、依赖和禁止平台符号。
+- `audit-release.ts`：扫描公开源码与 npm tarball 的私人路径、凭证形态和禁止文件。
 
-脚本只做仓库维护和接入，不复制 `src/` 中的业务规则。
+脚本通过 `npm run smoke`、`npm run audit:architecture` 和 `npm run audit:release` 执行，不复制领域业务规则。

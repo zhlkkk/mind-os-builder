@@ -1,6 +1,5 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { acquireLock } from "../lib/lock.js";
+import { acquireVaultLock } from "../lib/lock.js";
 import { MindosError, resolveWritePath } from "../lib/paths.js";
 import { atomicWrite, contentHash } from "../lib/write.js";
 import { appliedResult, blockedFromError, noopResult, previewResult, type CliResult } from "../lib/result.js";
@@ -24,7 +23,7 @@ export async function commitResearch(root: string, candidatePath: string, target
     if (current !== undefined) throw new MindosError("mindos.state.conflict", "research target already exists with different content");
     const artifacts = [{ kind: "research_report", path: target }];
     if (!apply) return previewResult(data, artifacts);
-    const lockKey = contentHash(Buffer.from(target, "utf8")).slice(0, 16); const lock = await acquireLock(join(root, ".mindos", "locks", `research-${lockKey}.lock`));
+    const lockKey = contentHash(Buffer.from(target, "utf8")).slice(0, 16); const lock = await acquireVaultLock(root, `.mindos/locks/research-${lockKey}.lock`);
     try {
       const afterLock = await existing(root, target);
       if (afterLock === candidate.content) return noopResult(data);

@@ -20,14 +20,6 @@ export type CompletedSubprocess = {
   exitCode: number;
 };
 
-function redact(value: string): string {
-  return value
-    .replace(/\b(cookie|authorization)\s*[:=]\s*[^\r\n]*/giu, "$1=[REDACTED]")
-    .replace(/\btoken\s*[:=]\s*[^\s;,]+/giu, "token=[REDACTED]")
-    .replace(/https?:\/\/[^\s/@]+@/giu, "https://[REDACTED]@")
-    .slice(0, 240);
-}
-
 export async function runSubprocess(options: SubprocessOptions): Promise<CompletedSubprocess> {
   if (options.command.length === 0 || options.command.includes("\u0000") || (options.args ?? []).some((argument) => argument.includes("\u0000"))) {
     throw new MindosError("mindos.input.invalid", "subprocess command must be a non-empty argv value");
@@ -83,8 +75,7 @@ export async function runSubprocess(options: SubprocessOptions): Promise<Complet
       }
       const renderedStderr = Buffer.concat(stderr).toString("utf8");
       if (code !== 0) {
-        const reason = redact(renderedStderr);
-        rejectResult(new MindosError("mindos.provider.command_failed", `provider command failed (${code ?? signal ?? "unknown"}): ${reason || "no safe error detail"}`));
+        rejectResult(new MindosError("mindos.provider.command_failed", `provider command failed (${code ?? signal ?? "unknown"})`));
         return;
       }
       resolveResult({ stdout: Buffer.concat(stdout).toString("utf8"), stderr: renderedStderr, exitCode: code ?? 0 });

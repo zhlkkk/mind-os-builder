@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import test from "node:test";
+import { parse } from "yaml";
 
 const root = process.cwd();
 const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as {
@@ -55,4 +56,17 @@ test("迁移语料覆盖七个工作流及其边界结果", () => {
     corpus.cases.map((item) => item.scenario),
     ["preview", "noop", "needs_agent", "dependency_failure", "preview", "conflict", "applied"],
   );
+});
+
+test("能力清单指向实际静态命令契约", () => {
+  const manifestSource = readFileSync(join(root, "data", "capabilities.yaml"), "utf8");
+  const manifest = parse(manifestSource) as { note: string; source: string };
+
+  assert.equal(manifest.source, "contracts/commands.yaml");
+  assert.equal(existsSync(join(root, manifest.source)), true, `能力来源不存在: ${manifest.source}`);
+  assert.doesNotMatch(manifestSource, /ACTION_REGISTRY|mind_os_builder\.core\.capabilities/u);
+  assert.match(manifest.note, /静态命令契约/u);
+  assert.match(manifest.note, /\.agents\/skills\//u);
+  assert.match(manifest.note, /jobs\//u);
+  assert.match(manifest.note, /不存在运行时 Registry/u);
 });

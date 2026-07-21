@@ -9,15 +9,23 @@ test("子进程仅执行 argv 并返回输出", async () => {
   assert.equal(completed.exitCode, 0);
 });
 
-test("子进程错误脱敏凭证且超量输出失败", async () => {
+test("子进程失败不公开 Provider stderr", async () => {
+  const providerStderr = "FOLO_API_KEY=folo-secret\nOPENCLI_TOKEN=opencli-secret\npassword=hunter2\nordinary provider failure detail";
   await assert.rejects(
-    () => runSubprocess({ command: process.execPath, args: ["-e", "process.stderr.write('Cookie: secret token=abc https://user:pass@example.test') ; process.exit(2)"] }),
-    (error: unknown) => error instanceof MindosError && error.code === "mindos.provider.command_failed" && !error.message.includes("secret") && !error.message.includes("pass"),
+    () => runSubprocess({ command: process.execPath, args: ["-e", "process.stderr.write(process.argv[1]); process.exit(2)", providerStderr] }),
+    (error: unknown) => {
+      assert.ok(error instanceof MindosError);
+      assert.equal(error.code, "mindos.provider.command_failed");
+      assert.equal(error.message, "provider command failed (2)");
+      for (const externalContent of ["FOLO_API_KEY", "folo-secret", "OPENCLI_TOKEN", "opencli-secret", "password", "hunter2", "ordinary provider failure detail"]) {
+        assert.equal(error.message.includes(externalContent), false);
+      }
+      return true;
+    },
   );
-  await assert.rejects(
-    () => runSubprocess({ command: process.execPath, args: ["-e", "process.stderr.write('Authorization: Bearer private-access-token\\nvisible detail'); process.exit(2)"] }),
-    (error: unknown) => error instanceof MindosError && !error.message.includes("private-access-token") && error.message.includes("visible detail"),
-  );
+});
+
+test("子进程超量输出失败", async () => {
   await assert.rejects(
     () => runSubprocess({ command: process.execPath, args: ["-e", "process.stdout.write('x'.repeat(32))"], maxStdoutBytes: 8 }),
     (error: unknown) => error instanceof MindosError && error.code === "mindos.provider.output_too_large",

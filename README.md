@@ -1,57 +1,77 @@
 # Mind OS Builder
 
-一套从空目录构建本地个人知识操作系统的方法、契约与参考实现。
+从空目录构建本地个人知识系统的方法、Skills、声明式 Jobs 与确定性 TypeScript CLI。项目公开的是搭建过程和标准接口，不包含任何人的私人知识库。
 
-项目公开可复用的构建过程，不包含任何人的私人知识库。仓库本身就是可读、可复制的系统骨架；Claude Code、Codex、Pi、Hermes、OpenClaw、WorkBuddy 等外层 Agent 只负责理解和调用它。
-
-## 一眼看懂仓库
+## 仓库结构
 
 ```text
-.agents/skills/   开放 Agent Skills，仓库中的规范源
-agents/           客户端中立的自定义 Agent 与角色契约
-adapters/         各 Agent 宿主的接入示例，不放业务逻辑
-data/             初始化模板、合成示例与默认配置
-docs/             从零教程、方法和架构说明
-jobs/             lint、distill、radar、采集等声明式任务
-scripts/          安装、审计和验证脚本
-src/              mindos CLI、MCP 与确定性领域实现
-tests/            单元、契约、集成和完整旅程测试
+.agents/skills/   工作流、判断规则、独立 prompts 与 references
+agents/           客户端中立的角色契约
+adapters/         Claude Code、Codex、Pi、Hermes、OpenClaw、WorkBuddy 接入
+contracts/        CLI、Agent 决策、Job 与 MCP 的 v1 Schema
+data/             Wiki、Book Base 与默认配置模板
+docs/             从零教程、架构、安全和 Provider 前置条件
+jobs/             任意运行层可解释的 command/skill YAML
+scripts/          TypeScript 烟测与发布审计
+src/              mindos CLI 的确定性准备、校验和提交
+tests/            契约、单元、集成、npm tarball E2E 与可选 live 测试
 ```
 
-这里使用标准化程度更高的复数目录 `.agents/skills/`，不是 `.agent/skills/`。顶层目录是唯一规范源；构建 wheel 时会把同一份资源带入安装包，不在 `src/` 里维护第二份副本。
+顶层目录是唯一规范源。npm 包携带同一批资产，不在 `src/` 维护副本。
 
-## 两种安装方式
+## 安装
 
-安装 CLI：
+需要 macOS 与 Node.js 24 LTS：
 
 ```bash
-git clone MIND_OS_BUILDER_REPO_URL mind-os-builder
-uv tool install ./mind-os-builder
+npm install -g mind-os-builder
 mindos doctor --json
 ```
 
-或者复制 [交给 Agent 的安装指令](docs/install-with-agent.md)，让当前的 Claude Code、Codex、Pi、Hermes、OpenClaw 或 WorkBuddy 完成检查、CLI 安装和 Skill 接入。仓库尚未发布远程地址，因此文档保留 `<MIND_OS_BUILDER_REPO_URL>` 占位符，发布时再替换。
-
-## 当前入口
+尚未发布 npm 时，从仓库安装：
 
 ```bash
-uv sync --extra dev
-uv run mindos doctor --json
-uv run mindos wiki init ./demo-vault --apply --json
-uv run mindos books init ./demo-vault --apply --json
-uv run mindos wiki lint ./demo-vault --json
-uv run mindos job list --json
+git clone <MIND_OS_BUILDER_REPO_URL> mind-os-builder
+cd mind-os-builder
+npm ci
+npm run build
+npm install -g .
 ```
 
-初始化后的 `demo-vault/.mindos/config.yaml` 包含 Tech Research 的非秘密配置；Twitter/OpenCLI、RSS/Folo 和各 Research Provider 的安装、认证与 Key 均由用户预先完成，Builder 不自动接管。
+也可以把 [`docs/install-with-agent.md`](docs/install-with-agent.md) 整段发给当前 Agent，让它安装 CLI 并接入宿主原生 Skill 目录。
 
-从 [零开始教程](docs/getting-started/00-overview.md) 继续搭建采集、Book Base、Distill、Tech Research、Radar、Agent Skills 与 MCP。
+## 从零初始化
 
-## 设计边界
+所有写操作默认 preview：
 
-- CLI 是确定性核心入口；MCP、Agent Skills、自定义 Agent 与 Job 只做标准适配。
-- Job 声明描述动作、输入输出、副作用、并发键、重试和时间提示，不绑定 cron、launchd 或某个 Agent 产品。
-- 所有写操作默认 dry-run；`--apply` 才会修改目标 vault。
-- 私人 vault、凭证和真实采集结果不进入本仓库；发布前执行 `uv run python scripts/audit_release.py .`。
+```bash
+mindos skills install codex --scope project --project /绝对路径/项目 --json
+mindos skills install codex --scope project --project /绝对路径/项目 --apply --json
+mindos wiki init ./demo-vault --json
+mindos wiki init ./demo-vault --apply --json
+mindos books init ./demo-vault --apply --json
+mindos wiki lint ./demo-vault --json
+```
 
-目录契约、架构和安全边界分别见 [docs/directory-contract.md](docs/directory-contract.md)、[docs/architecture.md](docs/architecture.md) 与 [docs/security-and-privacy.md](docs/security-and-privacy.md)。
+继续阅读 [`docs/getting-started/00-overview.md`](docs/getting-started/00-overview.md)，依次跑通 Twitter/OpenCLI、RSS/Folo、Distill、Tech Research、Radar、Jobs 和可选 MCP。
+
+## 核心边界
+
+- CLI 不调用模型；Agent 负责筛选、翻译、摘要、角色回复、研究综合和人工决定。
+- Twitter 只依赖用户预装的 OpenCLI；RSS 完全依赖用户预装的 Folo CLI，项目不自动安装或认证。
+- Tech Research 使用宿主已有的 Web、MCP、插件或 CLI；Provider Key 不进入项目配置。
+- Job 只声明 argv 或 Skill，不提供执行器和调度器。
+- MCP 是可选本地 stdio 适配器，只静态转发四个 CLI 原语。
+- `raw/logseq-import/` 与 `wiki/insights/` 不可写；Agent 输出始终先经 CLI 校验。
+
+## 开发验证
+
+```bash
+npm ci
+npm test
+npm run test:pack
+npm run audit:architecture
+npm run audit:release
+```
+
+`npm run smoke` 使用合成 Provider 完成完整离线旅程。真实 OpenCLI、Folo 和 Obsidian 只在用户显式设置 `MINDOS_RUN_LIVE=1` 时测试。

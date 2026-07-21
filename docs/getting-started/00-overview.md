@@ -1,56 +1,38 @@
 # 从零构建个人 Mind OS
 
-这套教程公开的是搭建方法、行为契约和合成示例，不是任何人的私人知识库。你会从一个空目录开始，逐层启用能力；没有 Twitter、LLM 或 Obsidian 凭证时，核心和离线示例仍然可用。
-
-## 学习路径
-
-- L0：初始化 LLM Wiki，并理解 `raw`、`wiki`、`journals` 与只读区。
-- L1：用离线 fixture 跑采集，启用 RIA Book Base。
-- L2：用五角色 Distill、假研究 Provider 和 Tech Radar dry-run 形成闭环。
-- L3：把同一 Action 接到 CLI、MCP、Agent Skills 或自己的运行工具。
+教程从一个空目录开始，最终得到 Wiki、Book Base、采集、Distill、Research、Radar、Jobs 和 Agent 接入。合成测试不读取已有知识库，也不要求真实账号。
 
 ## 前置条件
 
-- macOS；核心 Python 代码不依赖 macOS 专属接口，但首个完整烟测只认证 macOS。
-- Python 3.11+、Git 和 `uv`。
-- 一个新目录；不要把教程直接指向已有 Obsidian vault。
+- macOS。
+- Node.js 24 LTS 与 npm。
+- Git，以及一个明确的新目录。
 
-## 动作
+## 安装与自检
 
 ```bash
-git clone https://github.com/OWNER/mind-os-builder.git mind-os-builder
+git clone <MIND_OS_BUILDER_REPO_URL> mind-os-builder
 cd mind-os-builder
-uv sync --extra dev
-uv run mindos doctor --json
+npm ci
+npm run build
+node lib/src/cli.js doctor --json
 ```
 
-把命令中的 `OWNER` 替换为发布后的 GitHub 组织或用户名。
+发布后也可直接 `npm install -g mind-os-builder`。
 
-先运行完整离线证明，可以确认本机安装、wheel 资源和所有模块能够协作：
+## 先跑离线证明
 
 ```bash
-uv run python examples/offline_full_journey.py --vault ./demo-vault --json
+npm run smoke
 ```
 
-## 可见产物
+它使用临时 vault、合成 OpenCLI/Folo 可执行文件和合成 Agent 决策，跑通 doctor、Skills、Wiki、Books、Twitter、RSS、Distill、Research、Radar 与 Jobs，不访问真实账号。
 
-- 命令输出一个带 `status` 和各步骤状态的 JSON 对象。
-- `demo-vault/` 中出现 Wiki、两份采集简报、Book Base、五角色日记回复和合成研究报告。
-- 不会读取已有 vault，不要求网络、API key 或真实账号。
+## 学习路径
 
-## 排错
+- L0：[`01 Core Wiki`](01-core-wiki.md)，理解 `raw`、`wiki`、`journals` 与只读区。
+- L1：[`02 Collection`](02-collection.md) 与 [`03 Books`](03-books.md)。
+- L2：[`04 Distill`](04-distill.md) 与 [`05 Research/Radar`](05-research-and-radar.md)。
+- L3：[`06 Agent Adapters`](06-agent-adapters.md)，安装 Skills、读取 Jobs 或启用 MCP。
 
-- `uv` 不存在：按 [uv 官方安装文档](https://docs.astral.sh/uv/getting-started/installation/)安装后重试。
-- `doctor` 报必需项缺失：先修复 Python 或文件系统能力；可选 Provider 缺失不阻塞 L0。
-- 目标目录已有文件：换一个空目录。第一版不负责合并已有 vault。
-
-## 完成检查
-
-```bash
-test -f demo-vault/AGENTS.md
-test -f demo-vault/wiki/index.md
-test -f demo-vault/raw/collect/twitter-brief.md
-test -f demo-vault/wiki/books/books.base
-```
-
-四个检查均返回 0 后，继续 [01 Core Wiki](01-core-wiki.md)。
+第一版只负责新建或明确接管的目录，不自动合并现有 vault。所有写入先 preview，再显式 apply。

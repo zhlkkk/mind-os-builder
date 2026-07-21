@@ -4,13 +4,17 @@ import { join } from "node:path";
 import test from "node:test";
 import { parse } from "yaml";
 
-type CommandDescriptor = {
+type BaseCommandDescriptor = {
   name: string;
-  result_schema: string;
   input_schema?: string;
   effects: string[];
   agent_next_step: string;
   stable_errors: string[];
+};
+
+type CommandDescriptor = BaseCommandDescriptor & {
+  result_schema?: string;
+  transport?: "mcp-stdio";
 };
 
 const descriptorPath = join(process.cwd(), "contracts", "commands.yaml");
@@ -45,8 +49,14 @@ test("命令描述符发布分阶段命令和代理下一步", () => {
   );
 
   for (const command of descriptor.commands) {
-    assert.match(command.result_schema, /^contracts\/.+\.schema\.json$/);
-    assert.equal(existsSync(join(process.cwd(), command.result_schema)), true, `缺少契约: ${command.result_schema}`);
+    if (command.transport === "mcp-stdio") {
+      assert.equal(command.name, "mcp.serve");
+      assert.equal(Object.hasOwn(command, "result_schema"), false);
+    } else {
+      assert.equal(command.transport, undefined);
+      assert.match(command.result_schema ?? "", /^contracts\/.+\.schema\.json$/);
+      assert.equal(existsSync(join(process.cwd(), command.result_schema ?? "")), true, `缺少契约: ${command.result_schema}`);
+    }
     if (command.input_schema !== undefined) {
       assert.match(command.input_schema, /^contracts\/.+\.schema\.json$/);
       assert.equal(existsSync(join(process.cwd(), command.input_schema)), true, `缺少契约: ${command.input_schema}`);
@@ -61,7 +71,7 @@ test("命令描述符拒绝未知字段和无效技能引用", () => {
   for (const command of descriptor.commands) {
     assert.equal("runtime_dispatch" in command, false);
     assert.equal("skill" in command, false);
-    assert.equal(Object.hasOwn(command, "result_schema"), true);
+    assert.equal(Object.hasOwn(command, "result_schema"), command.name !== "mcp.serve");
   }
 
   const skillReferences: ReadonlyArray<readonly [string, string]> = [

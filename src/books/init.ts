@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { assetPath, readAssetTree } from "../lib/assets.js";
-import { acquireLock } from "../lib/lock.js";
+import { acquireVaultLock } from "../lib/lock.js";
 import { MindosError, resolveReadPath, resolveWritePath } from "../lib/paths.js";
 import { atomicWrite, contentHash } from "../lib/write.js";
 import { appliedResult, blockedFromError, noopResult, previewResult, type CliResult } from "../lib/result.js";
@@ -60,7 +60,7 @@ export async function initializeBooks(root: string, apply: boolean): Promise<Cli
       return previewResult(data, artifacts);
     }
     const key = contentHash(Buffer.from(root, "utf8")).slice(0, 16);
-    const lock = await acquireLock(join(root, ".mindos", "locks", `books-${key}.lock`));
+    const lock = await acquireVaultLock(root, `.mindos/locks/books-${key}.lock`);
     try {
       const indexAfterLock = await readFile(await resolveReadPath(root, indexRelative), "utf8");
       const logAfterLock = await readFile(await resolveReadPath(root, logRelative), "utf8");

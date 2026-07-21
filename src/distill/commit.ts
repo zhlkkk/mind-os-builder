@@ -1,5 +1,4 @@
-import { join } from "node:path";
-import { acquireLock } from "../lib/lock.js";
+import { acquireVaultLock } from "../lib/lock.js";
 import { MindosError } from "../lib/paths.js";
 import { atomicWrite, contentHash } from "../lib/write.js";
 import { type DistillResponseInput, validateResponseCoverage } from "./responses.js";
@@ -92,7 +91,7 @@ async function evaluate(root: string, source: string, input: DistillResponseInpu
 
 export async function commitDistill(root: string, source: string, input: DistillResponseInput, apply: boolean): Promise<DistillCommitOutcome> {
   if (!apply) return evaluate(root, source, input, false);
-  const lock = await acquireLock(join(root, ".mindos", "locks", `distill-${contentHash(Buffer.from(source, "utf8")).slice(0, 24)}.lock`));
+  const lock = await acquireVaultLock(root, `.mindos/locks/distill-${contentHash(Buffer.from(source, "utf8")).slice(0, 24)}.lock`);
   try {
     return await evaluate(root, source, input, true);
   } finally {

@@ -4,18 +4,19 @@ import { previewResult, type CliResult } from "../lib/result.js";
 async function isAvailable(command: string): Promise<boolean> {
   return new Promise<boolean>((resolveAvailable) => {
     const child = spawn(command, ["--version"], { shell: false, stdio: "ignore" });
+    let settled = false;
+    const finish = (available: boolean): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolveAvailable(available);
+    };
     const timer = setTimeout(() => {
+      finish(false);
       child.kill();
-      resolveAvailable(true);
     }, 1_000);
-    child.once("error", () => {
-      clearTimeout(timer);
-      resolveAvailable(false);
-    });
-    child.once("close", () => {
-      clearTimeout(timer);
-      resolveAvailable(true);
-    });
+    child.once("error", () => finish(false));
+    child.once("close", (code, signal) => finish(code === 0 && signal === null));
   });
 }
 

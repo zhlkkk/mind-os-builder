@@ -1,5 +1,5 @@
-import { readFile, stat } from "node:fs/promises";
-import { posix } from "node:path";
+import { readdir, readFile, stat } from "node:fs/promises";
+import { join, posix } from "node:path";
 import { MindosError, resolveReadPath } from "../lib/paths.js";
 import { contentHash } from "../lib/write.js";
 
@@ -86,15 +86,48 @@ async function readPage(root: string, relative: string): Promise<RadarPage> {
   return { path: relative, content, hash: contentHash(Buffer.from(content, "utf8")), signals: parseRadarPage(relative, content) };
 }
 
+async function wikiMarkdownBasenames(root: string): Promise<Map<string, string[]>> {
+  const wiki = await resolveReadPath(root, "wiki"); const matches = new Map<string, string[]>();
+  async function visit(current: string, relative: string): Promise<void> {
+    const entries = (await readdir(current, { withFileTypes: true })).sort((left, right) => left.name.localeCompare(right.name));
+    for (const entry of entries) {
+      if (entry.isSymbolicLink()) continue;
+      const absolute = join(current, entry.name); const path = posix.join(relative, entry.name);
+      if (entry.isDirectory()) {
+        if (path !== "wiki/insights") await visit(absolute, path);
+      } else if (entry.isFile() && entry.name.endsWith(".md")) {
+        const pages = matches.get(entry.name) ?? []; pages.push(path); matches.set(entry.name, pages);
+      }
+    }
+  }
+  try { await visit(wiki, "wiki"); } catch (error: unknown) {
+    if (error instanceof MindosError) throw error;
+    throw new MindosError("mindos.input.invalid", "radar wikilink targets cannot be resolved");
+  }
+  return matches;
+}
+
+function resolveBareTarget(target: string, basenames: Map<string, string[]>): string {
+  const fileName = target.endsWith(".md") ? target : `${target}.md`; const matches = basenames.get(fileName) ?? [];
+  if (matches.length === 0) throw new MindosError("mindos.input.invalid", `radar wikilink target does not exist: ${target}`);
+  if (matches.length > 1) throw new MindosError("mindos.input.invalid", `radar wikilink target is ambiguous: ${target}`);
+  return matches[0] as string;
+}
+
 export async function loadRadarPages(root: string, pages: readonly string[], hub?: string): Promise<RadarPage[]> {
   if (pages.length === 0 && hub === undefined) throw new MindosError("mindos.input.invalid", "radar prepare requires at least one page or hub");
   const resolved = [...pages];
   if (hub !== undefined) {
-    const hubPage = await readPage(root, hub);
+    const hubPage = await readPage(root, hub); let basenames: Map<string, string[]> | undefined;
     for (const match of hubPage.content.matchAll(WIKILINK)) {
       const target = (match[1] ?? "").trim();
       const withExtension = target.endsWith(".md") ? target : `${target}.md`;
-      resolved.push(target.includes("/") ? withExtension : posix.join(posix.dirname(hub), withExtension));
+      if (target.includes("/")) {
+        resolved.push(withExtension);
+      } else {
+        basenames ??= await wikiMarkdownBasenames(root);
+        resolved.push(resolveBareTarget(target, basenames));
+      }
     }
   }
   const unique = [...new Set(resolved)];

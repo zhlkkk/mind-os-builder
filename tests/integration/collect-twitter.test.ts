@@ -48,3 +48,23 @@ test("Twitter 缺失依赖返回失败且不泄漏 stderr", async (context) => {
   const result = run(["collect", "twitter", "prepare", join(root, "vault"), "--json"], { ...process.env, PATH: root });
   assert.equal(result.state, "failed"); assert.equal(result.error?.code, "mindos.dependency.unavailable");
 });
+
+test("Twitter 来源 URL 不能注入第二个 Markdown 资源", async (context) => {
+  const root = await mkdtemp(join(tmpdir(), "mindos-twitter-url-")); context.after(async () => rm(root, { recursive: true, force: true }));
+  const bin = join(root, "bin"); const vault = join(root, "vault"); await mkdir(bin);
+  const executable = join(bin, "opencli");
+  const providerUrl = "https://example.test/a b<c>)![tracking](https://tracker.test/pixel";
+  await writeFile(executable, `#!/usr/bin/env node\nprocess.stdout.write(JSON.stringify({records:[{id:"one",title:"Original",text:"details",url:${JSON.stringify(providerUrl)}}]}))\n`);
+  await chmod(executable, 0o700); const env = { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}` };
+  assert.equal(run(["wiki", "init", vault, "--apply", "--json"], env).state, "applied");
+  const prepared = run(["collect", "twitter", "prepare", vault, "--json"], env);
+  const path = join(root, "decisions.json"); await writeFile(path, JSON.stringify(decision(prepared)));
+  assert.equal(run(["collect", "twitter", "commit", vault, path, "--apply", "--json"], env).state, "applied");
+
+  const date = new Date().toISOString().slice(0, 10);
+  const daily = await readFile(join(vault, "raw/collect/twitter", `${date}.md`), "utf8");
+  const sourceLines = daily.split("\n").filter((line) => line.startsWith("- 来源："));
+  assert.deepEqual(sourceLines, ["- 来源：[Original](<https://example.test/a%20b%3Cc%3E%29!%5Btracking%5D%28https://tracker.test/pixel>)"]);
+  assert.equal(daily.includes("![tracking]"), false);
+  assert.equal(daily.match(/\]\(/gu)?.length, 1);
+});

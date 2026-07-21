@@ -1,6 +1,5 @@
 import { readFile, stat, unlink } from "node:fs/promises";
-import { join } from "node:path";
-import { acquireLock } from "../lib/lock.js";
+import { acquireVaultLock } from "../lib/lock.js";
 import { MindosError, resolveReadPath, resolveWritePath } from "../lib/paths.js";
 import { atomicWrite, contentHash } from "../lib/write.js";
 import { type RadarDecisionInput, validateRadarDecisionCoverage } from "./decisions.js";
@@ -120,6 +119,6 @@ async function execute(root: string, input: RadarDecisionInput, apply: boolean, 
 
 export async function commitRadar(root: string, input: RadarDecisionInput, apply: boolean, now = Date.now()): Promise<RadarCommitOutcome> {
   if (!apply) return execute(root, input, false, now);
-  const lock = await acquireLock(join(root, ".mindos", "locks", "radar-commit.lock"));
+  const lock = await acquireVaultLock(root, ".mindos/locks/radar-commit.lock");
   try { return await execute(root, input, true, now); } finally { await lock.release(); }
 }

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readdir, symlink, writeFile } from "node:fs/promises";
 import { hostname, tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { MindosError } from "../../src/lib/paths.js";
-import { acquireLock, releaseLock } from "../../src/lib/lock.js";
+import { acquireLock, acquireVaultLock, releaseLock } from "../../src/lib/lock.js";
 
 test("锁竞争被阻止，且 release 校验 token", async () => {
   const path = join(await mkdtemp(join(tmpdir(), "mindos-lock-")), "operation.lock");
@@ -36,4 +36,19 @@ test("仅回收同机同用户且已死亡的陈旧锁", async () => {
   );
   const lock = await acquireLock(path, { staleAfterMs: 1 });
   await lock.release();
+});
+
+test("vault 锁目录是符号链接时拒绝且不写入 vault 外", async () => {
+  const workspace = await mkdtemp(join(tmpdir(), "mindos-vault-lock-"));
+  const vault = join(workspace, "vault");
+  const outside = join(workspace, "outside");
+  await mkdir(join(vault, ".mindos"), { recursive: true });
+  await mkdir(outside);
+  await symlink(outside, join(vault, ".mindos", "locks"));
+
+  await assert.rejects(
+    () => acquireVaultLock(vault, ".mindos/locks/operation.lock"),
+    (error: unknown) => error instanceof MindosError && error.code === "mindos.filesystem.protected_path",
+  );
+  assert.deepEqual(await readdir(outside), []);
 });
