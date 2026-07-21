@@ -1,0 +1,50 @@
+{
+  "name": "mind-os-builder",
+  "version": "0.1.0",
+  "description": "Skill-first personal knowledge system CLI contracts",
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "bin": {
+    "mindos": "./lib/src/cli.js"
+  },
+  "files": [
+    "lib/src",
+    ".agents/skills",
+    "agents",
+    "adapters",
+    "contracts",
+    "data",
+    "jobs",
+    "docs",
+    "scripts",
+    "README.md",
+    "LICENSE",
+    "AGENTS.md",
+    "!**/__pycache__/**",
+    "!**/*.pyc",
+    "!**/.cache/**",
+    "!private/**",
+    "!raw/**",
+    "!tests/**"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "test:contract": "npm run build && node --test lib/tests/contract/*.test.js"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "commander": "^13.0.0",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.20.0",
+    "@types/node": "^24.0.0",
+    "eslint": "^9.20.0",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.24.0"
+  }
+}

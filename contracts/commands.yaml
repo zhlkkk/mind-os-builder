@@ -1,0 +1,107 @@
+version: v1
+commands:
+  - name: doctor
+    result_schema: contracts/cli-result.schema.json
+    effects: [workspace.read]
+    agent_next_step: 安装或认证缺失的外部依赖后重试。
+    stable_errors: [mindos.dependency.unavailable]
+  - name: skills.install
+    result_schema: contracts/cli-result.schema.json
+    effects: [workspace.write]
+    agent_next_step: 检查预演和冲突，获得授权后显式 apply。
+    stable_errors: [mindos.input.invalid, mindos.filesystem.conflict]
+  - name: wiki.init
+    result_schema: contracts/cli-result.schema.json
+    effects: [workspace.write]
+    agent_next_step: 检查预演产物，获得授权后显式 apply。
+    stable_errors: [mindos.input.invalid, mindos.filesystem.protected_path]
+  - name: wiki.lint
+    result_schema: contracts/cli-result.schema.json
+    effects: [workspace.read]
+    agent_next_step: 根据 lint 数据修复 Wiki，随后重新检查。
+    stable_errors: [mindos.input.invalid, mindos.filesystem.invalid_root]
+  - name: wiki.ingest
+    result_schema: contracts/cli-result.schema.json
+    effects: [workspace.write]
+    agent_next_step: 解决基线或目标冲突后重新预演。
+    stable_errors: [mindos.input.invalid, mindos.state.conflict, mindos.filesystem.protected_path]
+  - name: wiki.query
+    result_schema: contracts/cli-result.schema.json
+    effects: [workspace.read]
+    agent_next_step: 使用返回结果回答问题，必要时再生成 ingest 候选。
+    stable_errors: [mindos.input.invalid, mindos.filesystem.invalid_root]
+  - name: books.init
+    result_schema: contracts/cli-result.schema.json
+    effects: [workspace.write]
+    agent_next_step: 检查预演，获得授权后显式 apply。
+    stable_errors: [mindos.input.invalid, mindos.filesystem.conflict]
+  - name: books.validate
+    result_schema: contracts/cli-result.schema.json
+    effects: [workspace.read]
+    agent_next_step: 修复书籍页面或 Base 配置后重新校验。
+    stable_errors: [mindos.input.invalid, mindos.filesystem.invalid_root]
+  - name: collect.twitter.prepare
+    result_schema: contracts/cli-result.schema.json
+    effects: [network.read, temp.write]
+    agent_next_step: 由外层 Agent 筛选候选并生成完整决策文件。
+    stable_errors: [mindos.dependency.unavailable, mindos.provider.invalid_output]
+  - name: collect.twitter.commit
+    result_schema: contracts/cli-result.schema.json
+    input_schema: contracts/collection-decisions.schema.json
+    effects: [workspace.write]
+    agent_next_step: 解决批次、基线或输入冲突后重新 prepare。
+    stable_errors: [mindos.input.invalid, mindos.state.batch_expired, mindos.state.conflict]
+  - name: collect.rss.prepare
+    result_schema: contracts/cli-result.schema.json
+    effects: [network.read, temp.write]
+    agent_next_step: 由外层 Agent 筛选 Folo 候选并生成完整决策文件。
+    stable_errors: [mindos.dependency.unavailable, mindos.provider.invalid_output]
+  - name: collect.rss.commit
+    result_schema: contracts/cli-result.schema.json
+    input_schema: contracts/collection-decisions.schema.json
+    effects: [workspace.write]
+    agent_next_step: 解决批次、基线或输入冲突后重新 prepare。
+    stable_errors: [mindos.input.invalid, mindos.state.batch_expired, mindos.state.conflict]
+  - name: distill.scan
+    result_schema: contracts/cli-result.schema.json
+    effects: [workspace.read]
+    agent_next_step: 让对应角色 Agent 生成结构化回复。
+    stable_errors: [mindos.input.invalid, mindos.filesystem.protected_path]
+  - name: distill.apply
+    result_schema: contracts/cli-result.schema.json
+    input_schema: contracts/distill-responses.schema.json
+    effects: [workspace.write]
+    agent_next_step: 解决来源基线变化后重新 scan。
+    stable_errors: [mindos.input.invalid, mindos.state.conflict]
+  - name: radar.prepare
+    result_schema: contracts/cli-result.schema.json
+    effects: [workspace.read, temp.write]
+    agent_next_step: 逐项批准或拒绝建议后提交完整决策。
+    stable_errors: [mindos.input.invalid, mindos.filesystem.invalid_root]
+  - name: radar.commit
+    result_schema: contracts/cli-result.schema.json
+    input_schema: contracts/radar-decisions.schema.json
+    effects: [workspace.write]
+    agent_next_step: 解决页面基线变化后重新 prepare。
+    stable_errors: [mindos.input.invalid, mindos.state.batch_expired, mindos.state.conflict]
+  - name: research.commit
+    result_schema: contracts/cli-result.schema.json
+    input_schema: contracts/research-report.schema.json
+    effects: [workspace.write]
+    agent_next_step: 补齐来源或修复候选报告后重新预演。
+    stable_errors: [mindos.input.invalid, mindos.filesystem.protected_path, mindos.filesystem.conflict]
+  - name: jobs.list
+    result_schema: contracts/cli-result.schema.json
+    effects: [workspace.read]
+    agent_next_step: 选择 Job，并由宿主解释其 command 或 skill 入口。
+    stable_errors: [mindos.input.invalid]
+  - name: jobs.show
+    result_schema: contracts/cli-result.schema.json
+    effects: [workspace.read]
+    agent_next_step: 校验输入与 effects 后由宿主执行。
+    stable_errors: [mindos.input.invalid]
+  - name: mcp.serve
+    result_schema: contracts/cli-result.schema.json
+    effects: [workspace.read]
+    agent_next_step: 安装可选 MCP 依赖后重试，或直接使用 CLI。
+    stable_errors: [mindos.dependency.unavailable]

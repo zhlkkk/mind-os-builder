@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mind-os-builder.dev/contracts/research-report.schema.json",
+  "title": "研究报告 v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "topic", "findings", "sources"],
+  "properties": {
+    "version": {"const": "v1"},
+    "topic": {"type": "string", "minLength": 1, "maxLength": 500},
+    "findings": {"type": "array", "maxItems": 100, "items": {"type": "string", "minLength": 1, "maxLength": 20000}},
+    "sources": {"type": "array", "maxItems": 200, "items": {"type": "string", "maxLength": 2048, "format": "uri"}}
+  }
+}

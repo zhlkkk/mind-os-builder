@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mind-os-builder.dev/contracts/cli-result.schema.json",
+  "title": "Mind OS CLI 结果 v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "ok", "state", "changed", "artifacts", "data"],
+  "properties": {
+    "version": {"const": "v1"},
+    "ok": {"type": "boolean"},
+    "state": {"enum": ["preview", "applied", "noop", "needs_agent", "blocked", "failed"]},
+    "changed": {"type": "boolean"},
+    "artifacts": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "path"],
+        "properties": {
+          "kind": {"type": "string", "minLength": 1, "maxLength": 64},
+          "path": {"type": "string", "minLength": 1, "maxLength": 4096}
+        }
+      }
+    },
+    "data": {"type": "object"},
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": {"type": "string", "maxLength": 128, "pattern": "^mindos\\.[a-z0-9_]+(?:\\.[a-z0-9_]+)+$"},
+        "message": {"type": "string", "minLength": 1, "maxLength": 4096}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"state": {"enum": ["preview", "noop", "needs_agent"]}}, "required": ["state"]},
+      "then": {"properties": {"ok": {"const": true}, "changed": {"const": false}}, "not": {"required": ["error"]}}
+    },
+    {
+      "if": {"properties": {"state": {"const": "applied"}}, "required": ["state"]},
+      "then": {"properties": {"ok": {"const": true}, "changed": {"const": true}}, "not": {"required": ["error"]}}
+    },
+    {
+      "if": {"properties": {"state": {"enum": ["blocked", "failed"]}}, "required": ["state"]},
+      "then": {"properties": {"ok": {"const": false}, "changed": {"const": false}}, "required": ["error"]}
+    }
+  ]
+}

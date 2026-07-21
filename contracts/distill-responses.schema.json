@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mind-os-builder.dev/contracts/distill-responses.schema.json",
+  "title": "蒸馏回复 v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "responses"],
+  "properties": {
+    "version": {"const": "v1"},
+    "responses": {"type": "array", "maxItems": 500, "items": {"type": "object", "additionalProperties": false, "required": ["trigger_id", "response"], "properties": {"trigger_id": {"type": "string", "minLength": 1, "maxLength": 256}, "response": {"type": "string", "minLength": 1, "maxLength": 20000}}}}
+  }
+}

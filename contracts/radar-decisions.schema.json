@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://mind-os-builder.dev/contracts/radar-decisions.schema.json",
+  "title": "技术雷达决策 v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "decisions"],
+  "properties": {
+    "version": {"const": "v1"},
+    "decisions": {"type": "array", "maxItems": 500, "items": {"type": "object", "additionalProperties": false, "required": ["item", "action"], "properties": {"item": {"type": "string", "minLength": 1, "maxLength": 256}, "action": {"enum": ["adopt", "trial", "hold", "retire"]}}}}
+  }
+}
