@@ -30,6 +30,10 @@ test("子进程超量输出失败", async () => {
     () => runSubprocess({ command: process.execPath, args: ["-e", "process.stdout.write('x'.repeat(32))"], maxStdoutBytes: 8 }),
     (error: unknown) => error instanceof MindosError && error.code === "mindos.provider.output_too_large",
   );
+  await assert.rejects(
+    () => runSubprocess({ command: process.execPath, args: ["-e", "process.stderr.write('x'.repeat(32))"], maxStderrBytes: 8 }),
+    (error: unknown) => error instanceof MindosError && error.code === "mindos.provider.output_too_large",
+  );
 });
 
 test("子进程区分缺失、超时和无效 JSON", async () => {

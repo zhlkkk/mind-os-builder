@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { execFile, type ExecFileException } from "node:child_process";
 import { parseJsonInput } from "./input.js";
 import { MindosError } from "./paths.js";
 
@@ -20,6 +20,19 @@ export type CompletedSubprocess = {
   exitCode: number;
 };
 
+function providerError(error: ExecFileException): MindosError {
+  if (error.code === "ENOENT") {
+    return new MindosError("mindos.dependency.unavailable", "provider command is not installed");
+  }
+  if (error.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
+    return new MindosError("mindos.provider.output_too_large", "provider output exceeded limit");
+  }
+  if (error.killed) {
+    return new MindosError("mindos.provider.timeout", "provider command timed out");
+  }
+  return new MindosError("mindos.provider.command_failed", `provider command failed (${error.code ?? error.signal ?? "unknown"})`);
+}
+
 export async function runSubprocess(options: SubprocessOptions): Promise<CompletedSubprocess> {
   if (options.command.length === 0 || options.command.includes("\u0000") || (options.args ?? []).some((argument) => argument.includes("\u0000"))) {
     throw new MindosError("mindos.input.invalid", "subprocess command must be a non-empty argv value");
@@ -29,56 +42,22 @@ export async function runSubprocess(options: SubprocessOptions): Promise<Complet
   const maxStderrBytes = options.maxStderrBytes ?? DEFAULT_MAX_STDERR_BYTES;
 
   return new Promise<CompletedSubprocess>((resolveResult, rejectResult) => {
-    let failure: MindosError | undefined;
-    const stdout: Buffer[] = [];
-    const stderr: Buffer[] = [];
-    let stdoutSize = 0;
-    let stderrSize = 0;
-    const child = spawn(options.command, options.args ?? [], { shell: false, stdio: ["ignore", "pipe", "pipe"] });
-    const timer = setTimeout(() => {
-      failure ??= new MindosError("mindos.provider.timeout", "provider command timed out");
-      child.kill();
-    }, timeoutMs);
-
-    const overLimit = (stream: "stdout" | "stderr"): void => {
-      failure ??= new MindosError("mindos.provider.output_too_large", `${stream} exceeded output limit`);
-      child.kill();
-    };
-
-    child.stdout.on("data", (chunk: Buffer) => {
-      stdoutSize += chunk.length;
-      if (stdoutSize > maxStdoutBytes) {
-        overLimit("stdout");
-      } else {
-        stdout.push(chunk);
-      }
-    });
-    child.stderr.on("data", (chunk: Buffer) => {
-      stderrSize += chunk.length;
-      if (stderrSize > maxStderrBytes) {
-        overLimit("stderr");
-      } else {
-        stderr.push(chunk);
-      }
-    });
-    child.on("error", (error: NodeJS.ErrnoException) => {
-      failure ??= new MindosError(
-        error.code === "ENOENT" ? "mindos.dependency.unavailable" : "mindos.provider.command_failed",
-        error.code === "ENOENT" ? "provider command is not installed" : "provider command could not start",
-      );
-    });
-    child.on("close", (code, signal) => {
-      clearTimeout(timer);
-      if (failure !== undefined) {
-        rejectResult(failure);
+    execFile(options.command, [...(options.args ?? [])], {
+      encoding: "utf8",
+      maxBuffer: Math.max(maxStdoutBytes, maxStderrBytes),
+      shell: false,
+      timeout: timeoutMs,
+      windowsHide: true,
+    }, (error, stdout, stderr) => {
+      if (error !== null) {
+        rejectResult(providerError(error));
         return;
       }
-      const renderedStderr = Buffer.concat(stderr).toString("utf8");
-      if (code !== 0) {
-        rejectResult(new MindosError("mindos.provider.command_failed", `provider command failed (${code ?? signal ?? "unknown"})`));
+      if (Buffer.byteLength(stdout, "utf8") > maxStdoutBytes || Buffer.byteLength(stderr, "utf8") > maxStderrBytes) {
+        rejectResult(new MindosError("mindos.provider.output_too_large", "provider output exceeded limit"));
         return;
       }
-      resolveResult({ stdout: Buffer.concat(stdout).toString("utf8"), stderr: renderedStderr, exitCode: code ?? 0 });
+      resolveResult({ stdout, stderr, exitCode: 0 });
     });
   });
 }

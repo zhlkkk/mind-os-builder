@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { chmod, copyFile, mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { join } from "node:path";
@@ -27,9 +27,8 @@ test("mindos doctor 将超时和缺失 CLI 标为不可用", async () => {
   const opencli = join(fakeBin, "opencli");
   const folocli = join(fakeBin, "folocli");
   try {
-    await copyFile("/usr/bin/yes", opencli);
-    await copyFile("/usr/bin/true", folocli);
-    await Promise.all([chmod(opencli, 0o755), chmod(folocli, 0o755)]);
+    await writeFile(opencli, "#!/bin/sh\nexec /bin/sleep 5\n", { mode: 0o755 });
+    await symlink(process.execPath, folocli);
 
     const { stdout } = await execFileAsync(process.execPath, [cli, "doctor", "--json"], {
       env: { ...process.env, PATH: fakeBin },
