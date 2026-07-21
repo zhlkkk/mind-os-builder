@@ -11,6 +11,22 @@ MCP ────────────── 静态转发 ──┘
 
 `.agents/skills/`、`agents/`、`data/`、`docs/`、`jobs/` 是人能直接阅读的规范层。npm tarball 只打包这些目录和编译后的 CLI。
 
+## 模块与扩展缝
+
+项目通过少量稳定接口隐藏具体实现。新增能力应选择已有的缝，而不是增加一个全局注册中心：
+
+| 缝 | 接口 | 适配器或实现 | 适合扩展什么 |
+|---|---|---|---|
+| 语义工作流 | `SKILL.md`、独立 prompts、结构化决策 Schema | 任意支持 Agent Skills 的宿主 | 新判断流程、角色、研究方法 |
+| 外部数据 | 固定 argv、规范化记录与稳定错误码 | OpenCLI、Folo CLI，后续显式 Provider | 新数据来源 |
+| 确定性提交 | `mindos ... prepare/commit --json` | TypeScript CLI 模块 | 校验、路径保护、锁、幂等写入 |
+| 可复用任务 | `jobs/*.yaml` | cron、launchd、Agent 平台 | 调度提示、重试和并发策略 |
+| Agent 宿主 | 规范 Skill 与 CLI JSON | `adapters/<host>/` | 新宿主的发现路径与配置 |
+| 工具协议 | `contracts/mcp-tools.yaml` | 本地 stdio MCP | 需要工具调用的宿主 |
+| 产品外壳 | CLI JSON、Job、MCP、文件结果 | 未来桌面端、Web 或托管控制面 | 安装、预览、授权、运行记录与可视化 |
+
+一个缝至少出现两个真实适配器后才值得抽象成通用接口。首个实现可以显式、局部；第二个实现出现时再抽取共同契约。这样扩展不会把 CLI 变成 Registry、Dispatcher 或通用工作流引擎。
+
 ## 分阶段工作流
 
 - Twitter/RSS：Provider CLI → prepare → Agent 筛选、翻译、摘要、分类 → commit。
@@ -25,3 +41,9 @@ MCP ────────────── 静态转发 ──┘
 所有写命令默认 preview，显式 `--apply` 后在操作级锁内重新校验基线。单文件通过同目录临时文件、fsync 和原子发布写入。多文件采集使用精简回执形成可恢复逻辑事务，不宣称物理多文件原子性。
 
 Jobs 不执行，MCP 不生成领域能力，Skills 不直接写 vault。运行层可以替换，CLI JSON 与文件结果保持不变。
+
+## 产品化边界
+
+产品形态可以增加安装向导、依赖诊断、配置编辑、批次预览、diff 审批、定时任务接入和运行历史，但不改变所有权：vault 仍由用户持有，语义判断仍由外层 Agent 完成，确定性写入仍由 CLI 校验。产品外壳是现有接口的消费者，不是第二套核心。
+
+远程同步、团队协作、账号计费或托管调度如果以后出现，应作为独立模块接入，并明确网络、付费调用和外部状态副作用。详见 [`evolution-roadmap.md`](evolution-roadmap.md)。

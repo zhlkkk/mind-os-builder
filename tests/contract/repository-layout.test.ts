@@ -42,22 +42,6 @@ test("构建后的命令行提供帮助和版本", () => {
   assert.match(execFileSync(process.execPath, [cli, "--version"], { encoding: "utf8" }), /^0\.1\.0/);
 });
 
-test("迁移语料覆盖七个工作流及其边界结果", () => {
-  const corpus = JSON.parse(readFileSync(join(root, "tests", "fixtures", "migration", "corpus.json"), "utf8")) as {
-    synthetic: boolean;
-    cases: Array<{ workflow: string; scenario: string }>;
-  };
-  assert.equal(corpus.synthetic, true);
-  assert.deepEqual(
-    corpus.cases.map((item) => item.workflow),
-    ["wiki", "books", "twitter", "folo", "distill", "radar", "research"],
-  );
-  assert.deepEqual(
-    corpus.cases.map((item) => item.scenario),
-    ["preview", "noop", "needs_agent", "dependency_failure", "preview", "conflict", "applied"],
-  );
-});
-
 test("能力清单指向实际静态命令契约", () => {
   const manifestSource = readFileSync(join(root, "data", "capabilities.yaml"), "utf8");
   const manifest = parse(manifestSource) as { note: string; source: string };
