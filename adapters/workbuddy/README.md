@@ -3,8 +3,9 @@
 项目级接入使用 `.agents/skills/`，与本仓库的规范目录一致：
 
 ```bash
-python scripts/install_harness.py workbuddy --scope project --project /绝对路径/目标项目
-python scripts/install_harness.py workbuddy --scope project --project /绝对路径/目标项目 --apply
+npm install -g mind-os-builder
+mindos skills install workbuddy --scope project --project /绝对路径/目标项目 --json
+mindos skills install workbuddy --scope project --project /绝对路径/目标项目 --apply --json
 ```
 
 也可以在 WorkBuddy 中上传本地 Skill 包，或让它读取本仓库后按当前任务安装。需要 MCP 时，在项目级 `.workbuddy/mcp.json` 或用户级 `~/.workbuddy/mcp.json` 中配置一个 stdio Server，命令为：

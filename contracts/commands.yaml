@@ -9,7 +9,7 @@ commands:
     result_schema: contracts/cli-result.schema.json
     effects: [workspace.write]
     agent_next_step: 检查预演和冲突，获得授权后显式 apply。
-    stable_errors: [mindos.input.invalid, mindos.filesystem.conflict]
+    stable_errors: [mindos.input.invalid, mindos.input.unsupported_scope, mindos.state.conflict, mindos.filesystem.symlink, mindos.filesystem.install_failed]
   - name: wiki.init
     result_schema: contracts/cli-result.schema.json
     effects: [workspace.write]

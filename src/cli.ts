@@ -2,6 +2,7 @@
 
 import { Command } from "commander";
 import { doctor } from "./commands/doctor.js";
+import { installSkills } from "./commands/skills-install.js";
 import { failedResult, type CliResult } from "./lib/result.js";
 
 function emit(result: CliResult): void {
@@ -22,6 +23,24 @@ program
   .option("--json", "输出版本化 JSON")
   .action(async () => {
     emit(await doctor());
+  });
+
+program
+  .command("skills")
+  .command("install <host>")
+  .requiredOption("--scope <scope>", "project 或 user", "project")
+  .option("--project <path>", "项目根目录", process.cwd())
+  .option("--home <path>", "用户根目录")
+  .option("--apply", "执行复制")
+  .option("--json", "输出版本化 JSON")
+  .action(async (host: string, options: { scope: "project" | "user"; project: string; home?: string; apply?: boolean }) => {
+    emit(await installSkills({
+      host,
+      scope: options.scope,
+      project: options.project,
+      ...(options.home === undefined ? {} : { home: options.home }),
+      ...(options.apply === undefined ? {} : { apply: options.apply }),
+    }));
   });
 
 try {

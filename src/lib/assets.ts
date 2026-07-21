@@ -7,7 +7,7 @@ const assetNames = new Set([".agents/skills", "agents", "adapters", "contracts",
 
 export function packageRoot(): string {
   const moduleDirectory = dirname(fileURLToPath(import.meta.url));
-  const candidates = [process.env.MINDOS_ASSET_ROOT, process.cwd(), resolve(moduleDirectory, "../.."), resolve(moduleDirectory, "../../..")];
+  const candidates = [process.env.MINDOS_ASSET_ROOT, resolve(moduleDirectory, "../.."), resolve(moduleDirectory, "../../.."), process.cwd()];
   for (const candidate of candidates) {
     if (candidate !== undefined && existsSync(join(candidate, "package.json"))) {
       return candidate;

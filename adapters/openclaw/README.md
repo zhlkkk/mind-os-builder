@@ -3,8 +3,9 @@
 OpenClaw 的工作区 Skill 目录是 `skills/`，全局目录是 `~/.openclaw/skills/`：
 
 ```bash
-python scripts/install_harness.py openclaw --scope project --project /绝对路径/目标工作区
-python scripts/install_harness.py openclaw --scope project --project /绝对路径/目标工作区 --apply
+npm install -g mind-os-builder
+mindos skills install openclaw --scope project --project /绝对路径/目标工作区 --json
+mindos skills install openclaw --scope project --project /绝对路径/目标工作区 --apply --json
 ```
 
 也可以从仓库根目录使用 OpenClaw 自带命令逐个安装：
