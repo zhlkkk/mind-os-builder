@@ -1,7 +1,6 @@
-import { createHash } from "node:crypto";
-import { readdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { assetPath } from "../lib/assets.js";
+import { assetPath, readAssetTree } from "../lib/assets.js";
 import { acquireLock } from "../lib/lock.js";
 import { MindosError, resolveReadPath, resolveWritePath } from "../lib/paths.js";
 import { atomicWrite, contentHash } from "../lib/write.js";
@@ -13,22 +12,6 @@ const indexEntry = "- [[example-book]] — Book Base 与 RIA 示例";
 const logEntry = "- 安装 Book Base 与 RIA 示例。";
 
 type Asset = { relative: string; content: string };
-
-async function assetsAt(root: string, current = root): Promise<Asset[]> {
-  const assets: Asset[] = [];
-  for (const entry of await readdir(current, { withFileTypes: true })) {
-    const path = join(current, entry.name);
-    if (entry.isSymbolicLink()) {
-      throw new MindosError("mindos.filesystem.symlink", "package Book asset contains a symbolic link");
-    }
-    if (entry.isDirectory()) {
-      assets.push(...await assetsAt(root, path));
-    } else if (entry.isFile()) {
-      assets.push({ relative: path.slice(root.length + 1).replaceAll("\\", "/"), content: await readFile(path, "utf8") });
-    }
-  }
-  return assets.sort((left, right) => left.relative.localeCompare(right.relative));
-}
 
 async function readExisting(root: string, relative: string): Promise<string | undefined> {
   const path = await resolveWritePath(root, relative);
@@ -51,7 +34,8 @@ export async function initializeBooks(root: string, apply: boolean): Promise<Cli
     if (wiki.length === 0) {
       throw new MindosError("mindos.filesystem.invalid_root", "vault is missing Wiki directory");
     }
-    const assets = await assetsAt(join(assetPath("data"), "books"));
+    const assets = (await readAssetTree(join(assetPath("data"), "books")))
+      .map((asset) => ({ relative: asset.relative, content: Buffer.from(asset.content).toString("utf8") }));
     const missing: Asset[] = [];
     for (const asset of assets) {
       const existing = await readExisting(root, asset.relative);
@@ -75,7 +59,7 @@ export async function initializeBooks(root: string, apply: boolean): Promise<Cli
     if (!apply) {
       return previewResult(data, artifacts);
     }
-    const key = createHash("sha256").update(root).digest("hex").slice(0, 16);
+    const key = contentHash(Buffer.from(root, "utf8")).slice(0, 16);
     const lock = await acquireLock(join(root, ".mindos", "locks", `books-${key}.lock`));
     try {
       const indexAfterLock = await readFile(await resolveReadPath(root, indexRelative), "utf8");

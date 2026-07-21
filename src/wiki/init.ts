@@ -1,14 +1,12 @@
-import { createHash } from "node:crypto";
 import { lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
-import { assetPath } from "../lib/assets.js";
+import { assetPath, readAssetTree, type AssetFile } from "../lib/assets.js";
 import { acquireLock } from "../lib/lock.js";
 import { MindosError } from "../lib/paths.js";
 import { appliedResult, blockedFromError, noopResult, previewResult, type CliResult } from "../lib/result.js";
+import { contentHash } from "../lib/write.js";
 
 const directories = [".mindos", "raw/assets", "raw/logseq-import", "wiki/concepts", "wiki/entities", "wiki/connections", "wiki/insights", "journals", "templates"];
-
-type Asset = { relative: string; content: Uint8Array };
 
 async function lstatOrUndefined(path: string): Promise<Awaited<ReturnType<typeof lstat>> | undefined> {
   try {
@@ -21,23 +19,7 @@ async function lstatOrUndefined(path: string): Promise<Awaited<ReturnType<typeof
   }
 }
 
-async function filesAt(root: string, current = root): Promise<Asset[]> {
-  const assets: Asset[] = [];
-  for (const entry of await readdir(current, { withFileTypes: true })) {
-    const path = join(current, entry.name);
-    if (entry.isSymbolicLink()) {
-      throw new MindosError("mindos.filesystem.symlink", "package template contains a symbolic link");
-    }
-    if (entry.isDirectory()) {
-      assets.push(...await filesAt(root, path));
-    } else if (entry.isFile()) {
-      assets.push({ relative: path.slice(root.length + 1).replaceAll("\\", "/"), content: await readFile(path) });
-    }
-  }
-  return assets.sort((left, right) => left.relative.localeCompare(right.relative));
-}
-
-async function vaultMatches(vault: string, assets: readonly Asset[]): Promise<boolean> {
+async function vaultMatches(vault: string, assets: readonly AssetFile[]): Promise<boolean> {
   const metadata = await lstatOrUndefined(vault);
   if (metadata === undefined || !metadata.isDirectory() || metadata.isSymbolicLink()) {
     return false;
@@ -99,7 +81,7 @@ async function assertSafeVault(vault: string): Promise<void> {
   }
 }
 
-function artifacts(assets: readonly Asset[]): CliResult["artifacts"] {
+function artifacts(assets: readonly AssetFile[]): CliResult["artifacts"] {
   return [
     ...directories.map((path) => ({ kind: "directory", path })),
     ...assets.map((asset) => ({ kind: "file", path: asset.relative })),
@@ -113,7 +95,7 @@ export async function initializeWiki(target: string, apply = false): Promise<Cli
     assertTargetSyntax(target);
     vault = resolve(target);
     const dataRoot = join(assetPath("data"), "core");
-    const assets = await filesAt(dataRoot);
+    const assets = await readAssetTree(dataRoot);
     data = { files: assets.length, vault };
     await assertSafeVault(vault);
     if (await vaultMatches(vault, assets)) {
@@ -128,7 +110,7 @@ export async function initializeWiki(target: string, apply = false): Promise<Cli
       return previewResult(data, planned);
     }
     await mkdir(dirname(vault), { recursive: true, mode: 0o700 });
-    const lockKey = createHash("sha256").update(vault).digest("hex").slice(0, 16);
+    const lockKey = contentHash(Buffer.from(vault, "utf8")).slice(0, 16);
     const lock = await acquireLock(join(dirname(vault), `.${basename(vault)}-${lockKey}.lock`));
     try {
       await assertSafeVault(vault);

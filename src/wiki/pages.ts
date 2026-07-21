@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { lstat, readdir, readFile } from "node:fs/promises";
 import { dirname, join, relative as relativePath } from "node:path";
 import { parse } from "yaml";
@@ -100,7 +99,7 @@ export async function ingestWikiPage(root: string, relative: string, content: st
     if (!apply) {
       return previewResult(data, artifacts);
     }
-    const key = createHash("sha256").update(root).digest("hex").slice(0, 16);
+    const key = contentHash(Buffer.from(root, "utf8")).slice(0, 16);
     const lock = await acquireLock(join(root, ".mindos", "locks", `wiki-${key}.lock`));
     try {
       const currentAfterLock = await optionalContent(root, relative);
@@ -154,7 +153,7 @@ async function pagesAt(root: string, current = root, includeInsights = false): P
 
 export async function queryWiki(root: string, query: string, limit: number): Promise<CliResult> {
   try {
-    const needle = query.trim().toLocaleLowerCase();
+    const needle = query.trim().toLowerCase();
     if (needle.length === 0 || !Number.isInteger(limit) || limit < 1 || limit > 50) {
       throw new MindosError("mindos.input.invalid", "query and limit are invalid");
     }
@@ -172,7 +171,7 @@ export async function queryWiki(root: string, query: string, limit: number): Pro
     const matches: Array<{ path: string; excerpt: string }> = [];
     for (const path of candidates) {
       const content = await readFile(path, "utf8");
-      const position = content.toLocaleLowerCase().indexOf(needle);
+      const position = content.toLowerCase().indexOf(needle);
       if (position < 0) {
         continue;
       }

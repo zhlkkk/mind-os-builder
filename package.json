@@ -34,7 +34,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint \"src/**/*.ts\" \"tests/**/*.ts\"",
     "test:contract": "npm run build && node --test lib/tests/contract/*.test.js",
-    "test:u2": "npm run build && node --test lib/tests/unit/paths.test.js lib/tests/unit/write.test.js lib/tests/unit/lock.test.js lib/tests/unit/subprocess.test.js lib/tests/unit/input.test.js lib/tests/unit/assets.test.js lib/tests/integration/doctor.test.js",
+    "test:u2": "npm run build && node --test lib/tests/unit/paths.test.js lib/tests/unit/write.test.js lib/tests/unit/lock.test.js lib/tests/unit/subprocess.test.js lib/tests/unit/input.test.js lib/tests/unit/assets.test.js lib/tests/integration/doctor.test.js lib/tests/integration/cli-errors.test.js",
     "test:u9": "npm run build && node --test lib/tests/integration/skills-install.test.js lib/tests/integration/package-assets.test.js",
     "test:u3": "npm run build && node --test lib/tests/integration/wiki.test.js lib/tests/integration/books.test.js"
   },

@@ -15,6 +15,10 @@ test("子进程错误脱敏凭证且超量输出失败", async () => {
     (error: unknown) => error instanceof MindosError && error.code === "mindos.provider.command_failed" && !error.message.includes("secret") && !error.message.includes("pass"),
   );
   await assert.rejects(
+    () => runSubprocess({ command: process.execPath, args: ["-e", "process.stderr.write('Authorization: Bearer private-access-token\\nvisible detail'); process.exit(2)"] }),
+    (error: unknown) => error instanceof MindosError && !error.message.includes("private-access-token") && error.message.includes("visible detail"),
+  );
+  await assert.rejects(
     () => runSubprocess({ command: process.execPath, args: ["-e", "process.stdout.write('x'.repeat(32))"], maxStdoutBytes: 8 }),
     (error: unknown) => error instanceof MindosError && error.code === "mindos.provider.output_too_large",
   );

@@ -1,9 +1,28 @@
 import { existsSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { readdir, readFile } from "node:fs/promises";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { MindosError } from "./paths.js";
 
 const assetNames = new Set([".agents/skills", "agents", "adapters", "contracts", "data", "jobs"]);
+
+export type AssetFile = { relative: string; content: Uint8Array };
+
+export async function readAssetTree(root: string, current = root): Promise<AssetFile[]> {
+  const assets: AssetFile[] = [];
+  for (const entry of await readdir(current, { withFileTypes: true })) {
+    const path = join(current, entry.name);
+    if (entry.isSymbolicLink()) {
+      throw new MindosError("mindos.filesystem.symlink", "package asset contains a symbolic link");
+    }
+    if (entry.isDirectory()) {
+      assets.push(...await readAssetTree(root, path));
+    } else if (entry.isFile()) {
+      assets.push({ relative: relative(root, path).replaceAll("\\", "/"), content: await readFile(path) });
+    }
+  }
+  return assets.sort((left, right) => left.relative.localeCompare(right.relative));
+}
 
 export function packageRoot(): string {
   const moduleDirectory = dirname(fileURLToPath(import.meta.url));

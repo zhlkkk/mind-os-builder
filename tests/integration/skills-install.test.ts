@@ -174,6 +174,13 @@ test("Hermes 项目级安装、冲突与项目符号链接均安全阻止", asyn
     assert.equal(symlinked.code, 1);
     assert.equal(symlinked.result.error?.code, "mindos.filesystem.symlink");
     assert.deepEqual(await readdir(outside), []);
+
+    const linkedRoot = join(root, "linked-project");
+    await symlink(outside, linkedRoot);
+    const linkedRootResult = await invoke("codex", "project", linkedRoot, home, true);
+    assert.equal(linkedRootResult.code, 1);
+    assert.equal(linkedRootResult.result.error?.code, "mindos.filesystem.symlink");
+    assert.deepEqual(await readdir(outside), []);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

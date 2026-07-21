@@ -22,7 +22,8 @@ export type CompletedSubprocess = {
 
 function redact(value: string): string {
   return value
-    .replace(/(cookie|token|authorization)\s*[:=]\s*[^\s;,]+/giu, "$1=[REDACTED]")
+    .replace(/\b(cookie|authorization)\s*[:=]\s*[^\r\n]*/giu, "$1=[REDACTED]")
+    .replace(/\btoken\s*[:=]\s*[^\s;,]+/giu, "token=[REDACTED]")
     .replace(/https?:\/\/[^\s/@]+@/giu, "https://[REDACTED]@")
     .slice(0, 240);
 }

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 
-import { Command } from "commander";
+import { Command, CommanderError } from "commander";
 import { registerBooksCommands } from "./commands/books.js";
 import { doctor } from "./commands/doctor.js";
 import { installSkills } from "./commands/skills-install.js";
 import { registerWikiCommands } from "./commands/wiki.js";
-import { failedResult, type CliResult } from "./lib/result.js";
+import { MindosError } from "./lib/paths.js";
+import { blockedFromError, failedResult, type CliResult } from "./lib/result.js";
 
 function emit(result: CliResult): void {
   process.stdout.write(`${JSON.stringify(result)}\n`);
@@ -19,6 +20,8 @@ const program = new Command()
   .description("Mind OS 的 TypeScript 命令行入口")
   .version("0.1.0");
 
+program.exitOverride();
+program.configureOutput({ writeErr: () => undefined });
 program.showHelpAfterError();
 program
   .command("doctor")
@@ -51,5 +54,11 @@ program
 try {
   await program.parseAsync();
 } catch (error: unknown) {
-  emit(failedResult(error));
+  if (error instanceof CommanderError) {
+    if (error.code !== "commander.helpDisplayed" && error.code !== "commander.version") {
+      emit(blockedFromError(new MindosError("mindos.input.invalid", "invalid command arguments")));
+    }
+  } else {
+    emit(failedResult(error));
+  }
 }

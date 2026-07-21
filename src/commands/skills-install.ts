@@ -91,6 +91,9 @@ async function assertNoSymlinks(root: string): Promise<void> {
 
 async function projectPathHasSymlink(project: string, destination: string): Promise<boolean> {
   const root = resolve(project);
+  if ((await lstatOrUndefined(root))?.isSymbolicLink()) {
+    return true;
+  }
   const rel = relative(root, destination);
   if (rel === "" || rel === ".." || rel.startsWith(`..${sep}`)) {
     throw new MindosError("mindos.filesystem.invalid_root", "Skill destination escapes project root");
@@ -160,7 +163,6 @@ async function targetState(source: string, target: string, roles: string, name: 
     return "conflict";
   }
   try {
-    await assertNoSymlinks(target);
     if (await digest(source) !== await digest(target, name === "distill")) {
       return "conflict";
     }
