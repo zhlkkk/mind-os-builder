@@ -2,6 +2,7 @@
 
 import { Command, CommanderError } from "commander";
 import { registerBooksCommands } from "./commands/books.js";
+import { registerCollectCommands } from "./commands/collect.js";
 import { doctor } from "./commands/doctor.js";
 import { installSkills } from "./commands/skills-install.js";
 import { registerWikiCommands } from "./commands/wiki.js";
@@ -32,6 +33,7 @@ program
 
 registerWikiCommands(program, emit);
 registerBooksCommands(program, emit);
+registerCollectCommands(program, emit);
 
 program
   .command("skills")

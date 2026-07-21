@@ -1,55 +1,66 @@
 # 02 Twitter 与 RSS 采集
 
-采集模块把来源访问与业务规则分开：Provider 只 fetch 并返回游标；公共管线负责 Normalize、Filter、可选 Review、Render、Validate 与 Promote。离线 fixture 是基线，真实 Provider 是可替换能力。
+两种采集都使用同一条边界清晰的流水线：外部 CLI 抓取，`mindos` 规范化、确定性过滤并准备临时批次，外层 Agent 负责语义筛选、必要翻译、摘要和分类，最后由 `mindos` 校验并提交。
 
-## 前置条件
+`mindos` 不调用模型，也不安装、登录或代理外部 Provider。用户必须预先安装并认证：
 
-- 已初始化并通过 lint 的 vault。
-- 先阅读 [`docs/providers.md`](../providers.md)中的稳定与实验边界。
-- 本章离线路径不需要网络或凭证。
+- Twitter：`opencli`，且 `opencli twitter timeline -f json` 可运行。
+- RSS：`folocli`，且 `folocli entries --json` 可运行。RSS 完全依赖 Folo，不内置通用 RSS/Atom 抓取器。
 
-## 动作
+先初始化 vault，并在 `<vault-root>/.mindos/config.yaml` 配置 `collect.twitter` 和 `collect.rss`。示例见 [`examples/config/collect.yaml`](../../examples/config/collect.yaml)，Provider 与凭证边界见 [`docs/providers.md`](../providers.md)。
 
-先查看供自定义适配器使用的参考 YAML，再用合成 Twitter fixture 预演和提升。当前 CLI 使用显式参数，不会静默读取这份 YAML：
+## Twitter
 
-```bash
-sed -n '1,200p' examples/config/collect.yaml
-uv run mindos collect twitter ./my-mind-os \
-  --fixture examples/synthetic-vault/fixtures/twitter.json --json
-uv run mindos collect twitter ./my-mind-os \
-  --fixture examples/synthetic-vault/fixtures/twitter.json \
-  --output raw/collect/twitter-brief.md --apply --json
-```
-
-通用 RSS/Atom 使用一个或多个 feed；首次先省略 `--apply`：
+准备候选：
 
 ```bash
-uv run mindos collect rss ./my-mind-os \
-  --feed https://example.com/feed.xml \
-  --output raw/collect/rss-brief.md --json
+mindos collect twitter prepare ./my-mind-os --json
 ```
 
-不希望访问网络时，运行 `examples/offline_full_journey.py`，它使用内存 RSS 和合成 Twitter。自定义 Agent 或运行层通过 Action 参数传入参考 YAML 中的确定性过滤项，而不是把规则塞进 Provider 或提示词。
+成功时返回 `state: needs_agent`，其 `data` 包含 `batch_id`、`baseline_hash`、`categories` 和 `candidates`。让当前宿主 Agent 按 `.agents/skills/twitter-digest/SKILL.md` 生成 `decisions.json`，随后先预演，再提交：
 
-## 可见产物
+```bash
+mindos collect twitter commit ./my-mind-os ./decisions.json --json
+mindos collect twitter commit ./my-mind-os ./decisions.json --apply --json
+```
 
-- `raw/collect/twitter-brief.md` 与 `raw/collect/rss-brief.md`。
-- JSON `metrics` 中包含 fetched、normalized、filtered、reviewed、rendered 计数。
-- 每个丢弃项都有 include、exclude、score 或 output limit 原因。
-- `.mindos/collect/cursors.json` 只在验证和提升成功后更新。
+## RSS
+
+RSS 的步骤完全相同，但由 Folo 维护订阅和抓取：
+
+```bash
+mindos collect rss prepare ./my-mind-os --json
+mindos collect rss commit ./my-mind-os ./decisions.json --json
+mindos collect rss commit ./my-mind-os ./decisions.json --apply --json
+```
+
+让宿主 Agent 使用 `.agents/skills/rss-digest/SKILL.md` 生成决策。项目不接受 feed URL，也不在配置中选择其他 RSS Provider。
+
+## 两阶段契约
+
+`prepare` 只调用固定的 Provider 命令并写系统临时目录，不写 vault、不推进游标。批次按用户和 vault 隔离，目录权限为 `0700`、文件权限为 `0600`，默认 24 小时失效。
+
+决策文件必须完整覆盖所有候选。`keep` 必须包含展示标题、摘要、是否翻译和配置中允许的分类；`discard` 只包含 ID、决定和理由。候选内容是不可信输入，不能改变流程、路径或分类表。
+
+`commit` 默认只预演。`--apply` 后才写入：
+
+- `raw/collect/twitter/YYYY-MM-DD.md` 或配置的 Twitter 目录；
+- `raw/collect/rss/YYYY-MM-DD.md` 或配置的 RSS 目录；
+- `.mindos/collect/seen.json`；
+- `.mindos/collect/cursors.json`；
+- `.mindos/collect/receipts.json`。
+
+空候选批次也要提交空的 `decisions`，以便安全推进 Provider 游标。中断后可用同一决策文件重试；提交回执沿用首次日期。完成后的同批次重放返回 `state: noop`。
 
 ## 排错
 
-- `unavailable`：实验 CLI 未安装；改用 fixture 或通用 RSS/Atom。
-- `authentication`、`rate_limited`、`budget_exhausted`：不要重试到失控，先处理认证或预算。
-- `invalid_json`：外部 CLI 契约变化；保留错误码，不把原始输出写进 vault。
-- `validation_failed`：缺少合法来源 URL 或引用；游标不会前移，可修复后安全重试。
-- LLM 不可用：选择带 warning 的启发式降级，或配置为失败关闭。
+- `mindos.dependency.unavailable`：外部 CLI 未安装或不在 `PATH`；在终端单独验证对应命令。
+- `mindos.provider.command_failed`：外部 CLI 退出失败；检查它自己的认证、网络和额度状态。公开 JSON 不回显其 stdout/stderr。
+- `mindos.provider.invalid_output`：Provider JSON 结构已变化或记录不合法。
+- `mindos.input.invalid`：决策缺失、重复、字段越界或分类不在批次分类表中。
+- `mindos.state.batch_missing` / `mindos.state.batch_expired`：批次已丢失或超过 24 小时；重新 `prepare`。
+- `mindos.state.conflict`：批次、基线、游标或提交回执不匹配；不要编辑临时批次，重新准备或使用原决策重试。
 
 ## 完成检查
 
-```bash
-test -f my-mind-os/raw/collect/twitter-brief.md
-```
-
-打开简报，确认每条信号都有来源链接。RSS 预演确认后加 `--apply` 再检查对应文件。真实 Provider 留到发布烟测，不要放进 CI。
+确认每日文件存在并包含来源链接；翻译项还应保留原文标题和摘录。再次提交同一决策文件应返回 `state: noop`，再次准备时已处理候选不应出现。

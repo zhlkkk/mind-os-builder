@@ -1,5 +1,35 @@
 version: 1
 
+collect:
+  twitter:
+    output_directory: raw/collect/twitter
+    filters:
+      include_any: []
+      exclude_any: []
+      weights: {}
+      minimum_score: 0
+      output_limit: 50
+    categories:
+      agent-systems: Agent 系统
+      models-research: 模型与研究
+      developer-tools: 开发工具
+      products-practice: 产品与实践
+      other: 其他
+  rss:
+    output_directory: raw/collect/rss
+    filters:
+      include_any: []
+      exclude_any: []
+      weights: {}
+      minimum_score: 0
+      output_limit: 50
+    categories:
+      agent-systems: Agent 系统
+      models-research: 模型与研究
+      developer-tools: 开发工具
+      products-practice: 产品与实践
+      other: 其他
+
 research:
   timeout_seconds: 90
   attempts: 3

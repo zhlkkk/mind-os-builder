@@ -1,0 +1,50 @@
+import assert from "node:assert/strict";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import test from "node:test";
+
+const cli = join(process.cwd(), "lib/src/cli.js");
+type Result = { ok: boolean; state: string; data: Record<string, unknown>; error?: { code: string } };
+const run = (args: string[], env = process.env): Result => {
+  const result = spawnSync(process.execPath, [cli, ...args], { encoding: "utf8", env });
+  assert.equal(result.stderr, ""); assert.notEqual(result.stdout, ""); return JSON.parse(result.stdout) as Result;
+};
+const decision = (batch: Result) => ({
+  version: "v1", batch_id: batch.data.batch_id, baseline_hash: batch.data.baseline_hash,
+  decisions: [{ id: "one", decision: "keep", reason: "一手实现", display_title: "Agent 基准", display_summary: "公开了测试方法与结果。", translated: true, category: "agent-systems", tags: ["agent"] }],
+});
+
+test("Twitter 完成 prepare、校验、preview、apply 与 replay", async (context) => {
+  const root = await mkdtemp(join(tmpdir(), "mindos-twitter-")); context.after(async () => rm(root, { recursive: true, force: true }));
+  const bin = join(root, "bin"); const vault = join(root, "vault"); const other = join(root, "other"); await mkdir(bin);
+  const executable = join(bin, "opencli");
+  await writeFile(executable, `#!/usr/bin/env node\nprocess.stdout.write(JSON.stringify({records:[{id:"one",title:"Original",text:"details",url:"https://example.test/one"}],next_cursor:"next"}))\n`);
+  await chmod(executable, 0o700); const env = { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}` };
+  assert.equal(run(["wiki", "init", vault, "--apply", "--json"], env).state, "applied");
+  assert.equal(run(["wiki", "init", other, "--apply", "--json"], env).state, "applied");
+  const prepared = run(["collect", "twitter", "prepare", vault, "--json"], env); assert.equal(prepared.state, "needs_agent");
+  const path = join(root, "decisions.json"); const input = decision(prepared);
+  await writeFile(path, JSON.stringify({ ...input, decisions: [{ id: "one", decision: "keep" }] }));
+  assert.equal(run(["collect", "twitter", "commit", vault, path, "--json"], env).error?.code, "mindos.input.invalid");
+  await writeFile(path, JSON.stringify({ ...input, decisions: [{ ...input.decisions[0], category: "unknown" }] }));
+  assert.equal(run(["collect", "twitter", "commit", vault, path, "--json"], env).error?.code, "mindos.input.invalid");
+  await writeFile(path, JSON.stringify(input));
+  assert.equal(run(["collect", "twitter", "commit", other, path, "--json"], env).error?.code, "mindos.state.batch_missing");
+  assert.equal(run(["collect", "twitter", "commit", vault, path, "--json"], env).state, "preview");
+  const applied = run(["collect", "twitter", "commit", vault, path, "--apply", "--json"], env); assert.equal(applied.state, "applied");
+  const date = new Date().toISOString().slice(0, 10); const daily = await readFile(join(vault, "raw/collect/twitter", `${date}.md`), "utf8");
+  assert.match(daily, /mindos:collect:twitter:one/u); assert.match(daily, /Agent 基准/u); assert.match(daily, /Original/u);
+  assert.equal(run(["collect", "twitter", "commit", vault, path, "--apply", "--json"], env).state, "noop");
+  const empty = run(["collect", "twitter", "prepare", vault, "--json"], env); assert.equal(empty.data.candidate_count, 0);
+  await writeFile(path, JSON.stringify({ version: "v1", batch_id: empty.data.batch_id, baseline_hash: empty.data.baseline_hash, decisions: [] }));
+  assert.equal(run(["collect", "twitter", "commit", vault, path, "--apply", "--json"], env).state, "noop");
+});
+
+test("Twitter 缺失依赖返回失败且不泄漏 stderr", async (context) => {
+  const root = await mkdtemp(join(tmpdir(), "mindos-twitter-missing-")); context.after(async () => rm(root, { recursive: true, force: true }));
+  assert.equal(run(["wiki", "init", join(root, "vault"), "--apply", "--json"]).state, "applied");
+  const result = run(["collect", "twitter", "prepare", join(root, "vault"), "--json"], { ...process.env, PATH: root });
+  assert.equal(result.state, "failed"); assert.equal(result.error?.code, "mindos.dependency.unavailable");
+});

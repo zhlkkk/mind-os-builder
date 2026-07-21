@@ -1,0 +1,6 @@
+interface:
+  display_name: "Twitter 简报"
+  short_description: "筛选、翻译并分类 Twitter 候选"
+  default_prompt: "使用 $twitter-digest 准备 Twitter 候选，逐条完成筛选、必要翻译、分类与摘要，预演后提交每日简报。"
+policy:
+  allow_implicit_invocation: true

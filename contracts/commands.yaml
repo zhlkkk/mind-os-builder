@@ -50,7 +50,7 @@ commands:
     input_schema: contracts/collection-decisions.schema.json
     effects: [workspace.write]
     agent_next_step: 解决批次、基线或输入冲突后重新 prepare。
-    stable_errors: [mindos.input.invalid, mindos.state.batch_expired, mindos.state.conflict]
+    stable_errors: [mindos.input.invalid, mindos.state.batch_missing, mindos.state.batch_expired, mindos.state.conflict, mindos.filesystem.protected_path, mindos.state.locked]
   - name: collect.rss.prepare
     result_schema: contracts/cli-result.schema.json
     effects: [network.read, temp.write]
@@ -61,7 +61,7 @@ commands:
     input_schema: contracts/collection-decisions.schema.json
     effects: [workspace.write]
     agent_next_step: 解决批次、基线或输入冲突后重新 prepare。
-    stable_errors: [mindos.input.invalid, mindos.state.batch_expired, mindos.state.conflict]
+    stable_errors: [mindos.input.invalid, mindos.state.batch_missing, mindos.state.batch_expired, mindos.state.conflict, mindos.filesystem.protected_path, mindos.state.locked]
   - name: distill.scan
     result_schema: contracts/cli-result.schema.json
     effects: [workspace.read]

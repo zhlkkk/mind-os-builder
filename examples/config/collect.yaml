@@ -1,28 +1,37 @@
 version: 1
-output:
-  twitter: raw/collect/twitter-brief.md
-  rss: raw/collect/rss-brief.md
-filters:
-  include_any: [agent, protocol, benchmark]
-  exclude_any: [income story]
-  weights:
-    benchmark: 2
-    protocol: 2
-    agent: 1
-  minimum_score: 1
-  output_limit: 20
-llm_review:
-  enabled: false
-  unavailable: heuristic
-providers:
-  twitter_fixture:
-    path: examples/synthetic-vault/fixtures/twitter.json
+
+collect:
+  twitter:
+    output_directory: raw/collect/twitter
+    filters:
+      include_any: [agent, protocol, benchmark]
+      exclude_any: [income story]
+      weights:
+        benchmark: 2
+        protocol: 2
+        agent: 1
+      minimum_score: 1
+      output_limit: 20
+    categories:
+      agent-systems: Agent 系统
+      models-research: 模型与研究
+      developer-tools: 开发工具
+      products-practice: 产品与实践
+      other: 其他
   rss:
-    feeds: []
-    timeout_seconds: 10
-  twitter_opencli:
-    enabled: false
-    experimental: true
-  folo_cli:
-    enabled: false
-    experimental: true
+    output_directory: raw/collect/rss
+    filters:
+      include_any: [agent, protocol, benchmark]
+      exclude_any: [income story]
+      weights:
+        benchmark: 2
+        protocol: 2
+        agent: 1
+      minimum_score: 1
+      output_limit: 20
+    categories:
+      agent-systems: Agent 系统
+      models-research: 模型与研究
+      developer-tools: 开发工具
+      products-practice: 产品与实践
+      other: 其他

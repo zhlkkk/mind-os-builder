@@ -24,6 +24,10 @@ export function noopResult(data: Record<string, unknown>): CliResult {
   return { version: "v1", ok: true, state: "noop", changed: false, artifacts: [], data };
 }
 
+export function needsAgentResult(data: Record<string, unknown>): CliResult {
+  return { version: "v1", ok: true, state: "needs_agent", changed: false, artifacts: [], data };
+}
+
 export function blockedResult(code: string, message: string, data: Record<string, unknown>): CliResult {
   return { version: "v1", ok: false, state: "blocked", changed: false, artifacts: [], data, error: { code, message } };
 }
