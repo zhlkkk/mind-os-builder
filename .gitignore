@@ -9,7 +9,7 @@ __pycache__/
 *.py[cod]
 build/
 dist/
-lib/
+/lib/
 *.egg-info/
 .mindos/
 !data/core/.mindos/
