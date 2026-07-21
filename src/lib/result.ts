@@ -12,8 +12,8 @@ export type CliResult = {
   error?: { code: string; message: string };
 };
 
-export function previewResult(data: Record<string, unknown>): CliResult {
-  return { version: "v1", ok: true, state: "preview", changed: false, artifacts: [], data };
+export function previewResult(data: Record<string, unknown>, artifacts: CliResult["artifacts"] = []): CliResult {
+  return { version: "v1", ok: true, state: "preview", changed: false, artifacts, data };
 }
 
 export function appliedResult(data: Record<string, unknown>, artifacts: CliResult["artifacts"]): CliResult {
@@ -41,4 +41,11 @@ export function failedResult(error: unknown): CliResult {
     data: {},
     error: { code: safe.code, message: safe.message },
   };
+}
+
+export function blockedFromError(error: unknown, data: Record<string, unknown> = {}): CliResult {
+  const safe = error instanceof MindosError
+    ? error
+    : new MindosError("mindos.filesystem.failed", "unexpected command failure");
+  return blockedResult(safe.code, safe.message, data);
 }

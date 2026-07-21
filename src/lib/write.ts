@@ -1,10 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
-import { chmod, mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
+import { chmod, link, mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { MindosError, type PathOptions, resolveWritePath } from "./paths.js";
 
 export type AtomicWriteOptions = PathOptions & {
-  expectedHash?: string;
+  expectedHash?: string | null;
 };
 
 export type AtomicWriteOutcome = {
@@ -41,7 +41,10 @@ export async function atomicWrite(
 
   const existing = await existingContent(target);
   const currentHash = existing === undefined ? undefined : contentHash(existing);
-  if (options.expectedHash !== undefined && options.expectedHash !== currentHash) {
+  if (
+    (options.expectedHash === null && existing !== undefined) ||
+    (typeof options.expectedHash === "string" && options.expectedHash !== currentHash)
+  ) {
     throw new MindosError("mindos.state.conflict", "target does not match expected baseline");
   }
 
@@ -59,7 +62,18 @@ export async function atomicWrite(
     await handle.close();
     handle = undefined;
     await chmod(temporary, 0o600);
-    await rename(temporary, target);
+    if (options.expectedHash === null) {
+      try {
+        await link(temporary, target);
+      } catch (error: unknown) {
+        if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+          throw new MindosError("mindos.state.conflict", "target does not match expected baseline");
+        }
+        throw error;
+      }
+    } else {
+      await rename(temporary, target);
+    }
     const directory = await open(dirname(target), "r");
     try {
       await directory.sync();

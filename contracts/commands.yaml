@@ -14,7 +14,7 @@ commands:
     result_schema: contracts/cli-result.schema.json
     effects: [workspace.write]
     agent_next_step: 检查预演产物，获得授权后显式 apply。
-    stable_errors: [mindos.input.invalid, mindos.filesystem.protected_path]
+    stable_errors: [mindos.filesystem.protected_path, mindos.state.conflict, mindos.state.locked]
   - name: wiki.lint
     result_schema: contracts/cli-result.schema.json
     effects: [workspace.read]
@@ -24,7 +24,7 @@ commands:
     result_schema: contracts/cli-result.schema.json
     effects: [workspace.write]
     agent_next_step: 解决基线或目标冲突后重新预演。
-    stable_errors: [mindos.input.invalid, mindos.state.conflict, mindos.filesystem.protected_path]
+    stable_errors: [mindos.input.invalid, mindos.state.conflict, mindos.filesystem.protected_path, mindos.filesystem.invalid_root]
   - name: wiki.query
     result_schema: contracts/cli-result.schema.json
     effects: [workspace.read]
@@ -34,7 +34,7 @@ commands:
     result_schema: contracts/cli-result.schema.json
     effects: [workspace.write]
     agent_next_step: 检查预演，获得授权后显式 apply。
-    stable_errors: [mindos.input.invalid, mindos.filesystem.conflict]
+    stable_errors: [mindos.filesystem.invalid_root, mindos.filesystem.protected_path, mindos.state.conflict, mindos.state.locked]
   - name: books.validate
     result_schema: contracts/cli-result.schema.json
     effects: [workspace.read]

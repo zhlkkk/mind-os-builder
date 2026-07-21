@@ -12,15 +12,15 @@
 先预演，再显式写入：
 
 ```bash
-uv run mindos wiki init ./my-mind-os --json
-uv run mindos wiki init ./my-mind-os --apply --json
-uv run mindos wiki lint ./my-mind-os --json
+mindos wiki init ./my-mind-os --json
+mindos wiki init ./my-mind-os --apply --json
+mindos wiki lint ./my-mind-os --json
 ```
 
 第二次 apply 应为幂等操作：
 
 ```bash
-uv run mindos wiki init ./my-mind-os --apply --json
+mindos wiki init ./my-mind-os --apply --json
 ```
 
 ## 可见产物
@@ -35,15 +35,15 @@ uv run mindos wiki init ./my-mind-os --apply --json
 
 ## 排错
 
-- `reason_code: conflict`：目标目录不是空目录；不要用强制覆盖，改用新目录。
-- `reason_code: path_violation`：路径包含不安全跳转或符号链接。
+- `mindos.state.conflict`：目标目录不是空目录；不要用强制覆盖，改用新目录。
+- `mindos.filesystem.protected_path`：路径包含不安全跳转或符号链接。
 - lint 报 `frontmatter_missing`：按 `schema.md` 补齐 YAML，而不是关闭检查。
 - lint 报红链 warning：这是待编译线索，不一定阻塞；先确认拼写是否正确。
 
 ## 完成检查
 
 ```bash
-uv run mindos wiki lint ./my-mind-os --json
+mindos wiki lint ./my-mind-os --json
 ```
 
-确认 `status` 为 `succeeded`、`metrics.error_count` 为 0，并能从 `wiki/index.md` 导航到示例概念页。
+确认 `ok` 为 `true`、`data.error_count` 为 0，并能从 `wiki/index.md` 导航到示例概念页。

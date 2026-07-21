@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
+import { registerBooksCommands } from "./commands/books.js";
 import { doctor } from "./commands/doctor.js";
 import { installSkills } from "./commands/skills-install.js";
+import { registerWikiCommands } from "./commands/wiki.js";
 import { failedResult, type CliResult } from "./lib/result.js";
 
 function emit(result: CliResult): void {
@@ -24,6 +26,9 @@ program
   .action(async () => {
     emit(await doctor());
   });
+
+registerWikiCommands(program, emit);
+registerBooksCommands(program, emit);
 
 program
   .command("skills")
