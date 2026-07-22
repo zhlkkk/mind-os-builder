@@ -2,7 +2,7 @@
 
 这里保存 CLI 初始化和离线验证所需的公开数据。
 
-- `core/`：LLM Wiki 的基础目录、`AGENTS.md`、schema、起始页面与不含密钥的 `.mindos/config.yaml`。
+- `core/`：LLM Wiki 的基础目录、去个人化 `AGENTS.md`、完整 schema、日记模板、安全 `.gitignore`、起始页面与不含密钥的 `.mindos/config.yaml`。
 - `books/`：Book Base、书籍模板与合成示例。
 - `capabilities.yaml`：公开能力发现提示，指向 `contracts/commands.yaml` 静态命令契约；Skills 与 Jobs 分别从 `.agents/skills/` 和 `jobs/` 发现，不提供运行时 Registry。
 

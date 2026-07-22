@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, readdir, rm, symlink, unlink, writeFile } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -41,6 +41,28 @@ test("wiki init 预演零写入、应用后幂等，并拒绝未知内容", asyn
   assert.deepEqual({ ok: applied.ok, state: applied.state, changed: applied.changed }, { ok: true, state: "applied", changed: true });
   assert.match(await readFile(join(vault, "AGENTS.md"), "utf8"), /本地 LLM Wiki/);
   assert.match(await readFile(join(vault, "wiki", "index.md"), "utf8"), /\[\[welcome\]\]/);
+  for (const path of [
+    "raw/articles",
+    "raw/assets",
+    "raw/books",
+    "raw/logseq-import",
+    "raw/papers",
+    "wiki/books",
+    "wiki/concepts",
+    "wiki/connections",
+    "wiki/entities",
+    "wiki/insights",
+    "published/assets",
+    "journals",
+    "templates",
+  ]) {
+    await access(join(vault, path));
+  }
+  assert.match(await readFile(join(vault, "schema.md"), "utf8"), /published\/assets/);
+  assert.match(await readFile(join(vault, "templates", "daily-note.md"), "utf8"), /## 待 ingest/);
+  const gitignore = await readFile(join(vault, ".gitignore"), "utf8");
+  assert.match(gitignore, /^\.env$/mu);
+  assert.doesNotMatch(gitignore, /^\.agents\//mu);
 
   assert.equal(run(["wiki", "init", vault, "--apply", "--json"]).state, "noop");
 

@@ -25,13 +25,20 @@ mindos wiki init ./my-mind-os --apply --json
 
 ## 可见产物
 
-- `raw/`：人工筛选或 Provider 产出的原始材料。
-- `wiki/`：编译知识页、索引和日志。
+- `raw/articles|papers|books|assets/`：通用原始材料与附件目录。
+- `raw/logseq-import/`：历史导入，只读。
+- `wiki/concepts|entities|connections|books/`：概念、实体、关系和读书页。
+- `wiki/insights/`：人类洞察，Agent 只读。
 - `journals/`：日记与 Distill 触发来源。
+- `published/assets/`：对外内容及其图片、卡片、音视频和附件。
+- `templates/daily-note.md`：不含个人内容的日记模板。
+- `.gitignore`：默认排除凭证、Obsidian 本地状态、系统文件和生成报告，但不忽略 `.agents/`。
 - `AGENTS.md`、`schema.md`：结构、frontmatter、引用和写入约束。
 - 第二次初始化返回 `changed: false`，不会覆盖后续用户内容。
 
-`wiki/insights/` 和 `raw/logseq-import/` 永远不可由自动能力写入。
+Twitter、RSS、Tech Research 等能力在首次提交时按需创建自己的 `raw/` 子目录；核心模板不预设私人数据源列表。`.assets/`、编辑器配置、Agent 客户端配置、个人脚本和 `skills-lock.json` 不属于 vault 核心结构。
+
+`wiki/insights/` 和 `raw/logseq-import/` 永远不可由自动能力写入。Agent 也不能直接写入其他 `raw/` 目录，只能把结构化决策交给受支持的 CLI commit。
 
 ## 排错
 

@@ -6,7 +6,24 @@ import { MindosError } from "../lib/paths.js";
 import { appliedResult, blockedFromError, noopResult, previewResult, type CliResult } from "../lib/result.js";
 import { contentHash } from "../lib/write.js";
 
-const directories = [".mindos", "raw/assets", "raw/logseq-import", "wiki/concepts", "wiki/entities", "wiki/connections", "wiki/insights", "journals", "templates"];
+const directories = [
+  ".mindos",
+  "raw/articles",
+  "raw/assets",
+  "raw/books",
+  "raw/logseq-import",
+  "raw/papers",
+  "raw/rss",
+  "raw/twitter",
+  "wiki/books",
+  "wiki/concepts",
+  "wiki/connections",
+  "wiki/entities",
+  "wiki/insights",
+  "published/assets",
+  "journals",
+  "templates",
+];
 
 async function lstatOrUndefined(path: string): Promise<Awaited<ReturnType<typeof lstat>> | undefined> {
   try {
@@ -92,7 +109,9 @@ export async function initializeWiki(target: string, apply = false): Promise<Cli
     assertTargetSyntax(target);
     vault = resolve(target);
     const dataRoot = join(assetPath("data"), "core");
-    const assets = await readAssetTree(dataRoot);
+    const assets = (await readAssetTree(dataRoot)).map((asset) => (
+      asset.relative === "gitignore.template" ? { ...asset, relative: ".gitignore" } : asset
+    ));
     data = { files: assets.length, vault };
     await assertSafeVault(vault);
     if (await vaultMatches(vault, assets)) {

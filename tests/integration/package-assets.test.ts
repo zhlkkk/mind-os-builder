@@ -46,6 +46,14 @@ test("npm tarball 安装后使用与源码一致的规范 Skill 资产", async (
     const sourceDigest = await digest(join(process.cwd(), ".agents", "skills"));
     const packageDigest = await digest(join(installed, ".agents", "skills"));
     assert.equal(packageDigest, sourceDigest);
+    assert.equal(
+      await readFile(join(installed, "data", "core", "gitignore.template"), "utf8"),
+      await readFile(join(process.cwd(), "data", "core", "gitignore.template"), "utf8"),
+    );
+    assert.equal(
+      await readFile(join(installed, "data", "core", "templates", "daily-note.md"), "utf8"),
+      await readFile(join(process.cwd(), "data", "core", "templates", "daily-note.md"), "utf8"),
+    );
 
     const cli = join(installed, "lib", "src", "cli.js");
     const project = join(root, "consumer");
