@@ -7,7 +7,7 @@ import { contentHash } from "../lib/write.js";
 export type Source = "twitter" | "rss";
 export type Signal = { id: string; title: string; content: string; url: string; author: string };
 export type Filters = { include: string[]; exclude: string[]; weights: Record<string, number>; minimum: number; limit: number };
-export type CollectConfig = { output: string; categories: Record<string, string>; filters: Filters };
+export type CollectConfig = { output: string; filename: string; categories: Record<string, string>; filters: Filters };
 export type Batch = {
   version: "v1"; id: string; vault: string; source: Source; created_at: number; baseline_hash: string;
   initial_cursor: string | null; next_cursor: string | null; signals: Signal[]; config: CollectConfig;
@@ -29,7 +29,7 @@ export function normalizeProvider(source: Source, value: unknown): { signals: Si
   }
   const signals = records.map((item): Signal => {
     const record = typeof item === "object" && item !== null ? item as Record<string, unknown> : {};
-    const title = text(record.title, 4_000);
+    const title = text(record.title ?? record.text ?? record.content ?? record.summary, 4_000);
     const content = text(record.text ?? record.content ?? record.summary, 64_000);
     const author = text(record.author, 1_000);
     const url = validateHttpUrl(scalar(record.url ?? record.link)).toString();
@@ -65,9 +65,15 @@ export async function loadCollectConfig(root: string, source: Source): Promise<C
     || label.length === 0 || /[\r\n]/u.test(label) || label.includes("<!--"))) {
     throw new MindosError("mindos.input.invalid", "collection categories are invalid");
   }
-  const output = raw.output_directory === undefined ? `raw/collect/${source}` : scalar(raw.output_directory);
+  const output = raw.output_directory === undefined ? `raw/${source}` : scalar(raw.output_directory);
   if (!/^raw\/[a-z0-9][a-z0-9/-]*$/u.test(output) || output.includes("..")) {
     throw new MindosError("mindos.filesystem.protected_path", "collection output must be a raw vault-relative directory");
+  }
+  const defaultFilename = source === "twitter" ? "{date}-X精选信息简报.md" : "{date}-Folo精选信息简报.md";
+  const filename = raw.daily_filename === undefined ? defaultFilename : scalar(raw.daily_filename);
+  if (filename.length > 200 || !filename.endsWith(".md") || filename.split("{date}").length !== 2
+    || /[\\/\r\n\0]/u.test(filename) || filename.includes("..") || filename.includes("<!--")) {
+    throw new MindosError("mindos.input.invalid", "collection daily filename is invalid");
   }
   const weights = typeof filter.weights === "object" && filter.weights !== null
     ? Object.fromEntries(Object.entries(filter.weights as Record<string, unknown>).map(([key, value]) => [key.toLowerCase(), Number(value)])) : {};
@@ -75,7 +81,7 @@ export async function loadCollectConfig(root: string, source: Source): Promise<C
   if (!Number.isFinite(minimum) || !Number.isInteger(limit) || limit < 0 || limit > 200 || Object.values(weights).some((value) => !Number.isFinite(value))) {
     throw new MindosError("mindos.input.invalid", "collection filters are invalid");
   }
-  return { output, categories, filters: { include: strings(filter.include_any), exclude: strings(filter.exclude_any), weights, minimum, limit } };
+  return { output, filename, categories, filters: { include: strings(filter.include_any), exclude: strings(filter.exclude_any), weights, minimum, limit } };
 }
 
 export function filterSignals(signals: Signal[], filters: Filters): { signals: Signal[]; rejected: Record<string, number> } {

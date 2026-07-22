@@ -2,7 +2,8 @@ version: 1
 
 collect:
   twitter:
-    output_directory: raw/collect/twitter
+    output_directory: raw/twitter
+    daily_filename: "{date}-X精选信息简报.md"
     filters:
       include_any: [agent, protocol, benchmark]
       exclude_any: [income story]
@@ -19,7 +20,8 @@ collect:
       products-practice: 产品与实践
       other: 其他
   rss:
-    output_directory: raw/collect/rss
+    output_directory: raw/rss
+    daily_filename: "{date}-Folo精选信息简报.md"
     filters:
       include_any: [agent, protocol, benchmark]
       exclude_any: [income story]

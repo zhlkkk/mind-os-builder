@@ -28,7 +28,7 @@ function isBatch(value: unknown): value is Batch {
     && Array.isArray(batch.signals) && batch.signals.every((signal) => typeof signal === "object" && signal !== null
       && /^[\w.:-]{1,256}$/u.test(signal.id) && typeof signal.title === "string" && typeof signal.content === "string"
       && typeof signal.url === "string" && typeof signal.author === "string")
-    && typeof config === "object" && config !== null && typeof config.output === "string"
+    && typeof config === "object" && config !== null && typeof config.output === "string" && typeof config.filename === "string"
     && typeof config.categories === "object" && config.categories !== null && !Array.isArray(config.categories)
     && typeof config.filters === "object" && config.filters !== null;
 }

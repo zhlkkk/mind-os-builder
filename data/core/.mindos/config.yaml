@@ -2,21 +2,24 @@ version: 1
 
 collect:
   twitter:
-    output_directory: raw/collect/twitter
+    output_directory: raw/twitter
+    daily_filename: "{date}-X精选信息简报.md"
     filters:
       include_any: []
       exclude_any: []
       weights: {}
       minimum_score: 0
-      output_limit: 50
+      output_limit: 100
     categories:
-      agent-systems: Agent 系统
-      models-research: 模型与研究
-      developer-tools: 开发工具
-      products-practice: 产品与实践
-      other: 其他
+      agent-systems: 一、AI Agent 与工程化基础设施
+      developer-tools: 二、开发工具、代码质量与设计系统
+      financial-web3: 三、金融科技、Web3 与量化信号
+      indie-products: 四、独立开发与产品观点
+      ai-product-radar: 五、AI、金融与产品雷达
+      workflows-quant: 六、AI 工作流、Web3 与量化
   rss:
-    output_directory: raw/collect/rss
+    output_directory: raw/rss
+    daily_filename: "{date}-Folo精选信息简报.md"
     filters:
       include_any: []
       exclude_any: []
@@ -24,8 +27,9 @@ collect:
       minimum_score: 0
       output_limit: 50
     categories:
-      agent-systems: Agent 系统
-      models-research: 模型与研究
-      developer-tools: 开发工具
-      products-practice: 产品与实践
-      other: 其他
+      agent-systems: 一、AI Agent 与自动化工作流
+      models-research: 二、模型、论文与评测
+      developer-tools: 三、开发工具与工程实践
+      products-practice: 四、产品、公司与商业信号
+      data-infrastructure-security: 五、数据、基础设施与安全
+      deep-reading: 六、深度阅读与方法论

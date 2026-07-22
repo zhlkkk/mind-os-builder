@@ -41,6 +41,75 @@ const markdownDestination = (value: string): string => `<${value.replace(/[()[\]
   [...Buffer.from(character, "utf8")].map((byte) => `%${byte.toString(16).toUpperCase().padStart(2, "0")}`).join(""))}>`;
 const marker = (source: Source, id: string): string => `<!-- mindos:collect:${source}:${id} -->`;
 
+function twitterAuthor(url: string, fallback = "source"): string {
+  try {
+    const parsed = new URL(url); const handle = parsed.hostname === "x.com" ? parsed.pathname.split("/")[1] : undefined;
+    if (handle !== undefined && /^[A-Za-z0-9_]{1,50}$/u.test(handle)) return handle;
+  } catch { /* URL 已在 Provider 规范化时校验；这里只使用安全回退。 */ }
+  const author = fallback.trim().replace(/^@/u, "");
+  return /^[A-Za-z0-9_]{1,50}$/u.test(author) ? author : "source";
+}
+
+function rssSource(url: string, fallback = ""): string {
+  if (fallback.trim().length > 0) return fallback.trim();
+  try { return new URL(url).hostname.replace(/^www\./u, "") || "来源"; } catch { return "来源"; }
+}
+
+function normalizeTwitterSection(section: string): string {
+  let number = Math.max(0, ...[...section.matchAll(/^(\d+)\.\s/gmu)].map((match) => Number(match[1])));
+  const detailed = /<!-- mindos:collect:twitter:([\w.:-]+) -->\n### ([^\n]+)\n\n([^\n]+)\n\n- 来源：\[[^\n]*\]\(<(https?:\/\/[^>\n]+)>\)(?:\n- 原文：[^\n]*)?(?:\n- 标签：[^\n]*)?/gu;
+  return section.replace(detailed, (_match, id: string, title: string, summary: string, url: string) => {
+    number += 1;
+    return `${marker("twitter", id)}\n${number}. **${title}**：${summary}\n   — [@${twitterAuthor(url)}](${markdownDestination(url)})`;
+  });
+}
+
+function normalizeTwitterManaged(content: string): string {
+  return content.split(/(?=^## )/mu).map((part) => part.startsWith("## ") ? normalizeTwitterSection(part) : part).join("");
+}
+
+function normalizeRssSection(section: string, sources: Map<string, string>): string {
+  let number = Math.max(0, ...[...section.matchAll(/^(\d+)\.\s/gmu)].map((match) => Number(match[1])));
+  const detailed = /<!-- mindos:collect:rss:([\w.:-]+) -->\n### ([^\n]+)\n\n([^\n]+)\n\n- 来源：\[[^\n]*\]\(<(https?:\/\/[^>\n]+)>\)(?:\n- 原文：[^\n]*)?(?:\n- 标签：[^\n]*)?/gu;
+  return section.replace(detailed, (_match, id: string, title: string, summary: string, url: string) => {
+    number += 1;
+    return `${marker("rss", id)}\n${number}. **${title}**：${summary}\n   — [${inline(rssSource(url, sources.get(id)), 200)}](${markdownDestination(url)}) · Folo entry \`${id}\``;
+  });
+}
+
+function normalizeRssManaged(content: string, batch: Batch): string {
+  const sources = new Map(batch.signals.map((signal) => [signal.id, signal.author]));
+  return content.split(/(?=^## )/mu).map((part) => part.startsWith("## ") ? normalizeRssSection(part, sources) : part).join("");
+}
+
+function nextNumber(content: string, headingIndex: number, headingLength: number): number {
+  const nextHeading = content.indexOf("\n## ", headingIndex + headingLength);
+  const section = content.slice(headingIndex, nextHeading < 0 ? content.length : nextHeading);
+  return Math.max(0, ...[...section.matchAll(/^(\d+)\.\s/gmu)].map((match) => Number(match[1]))) + 1;
+}
+
+function initialDaily(source: Source, date: string, now: number): string {
+  const count = source === "twitter" ? "tweet_count" : "entry_count";
+  const title = source === "twitter" ? `X/Twitter 每日信息简报 — ${date}` : `${date} - Folo精选信息简报`;
+  const origin = source === "twitter" ? "x.com/home" : "folo";
+  const time = new Date(now).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return `---\ndate: ${date}\nsource: ${origin}\n${count}: 0\nlast_updated: "${time}"\n---\n\n# ${title}\n`;
+}
+
+function updateDailyMetadata(source: Source, content: string, now: number): string {
+  if (!content.startsWith("---\n")) return content;
+  const ids = new Set<string>();
+  const markerPattern = new RegExp(`mindos:collect:${source}:([\\w.:-]+)`, "gu");
+  for (const match of content.matchAll(markerPattern)) ids.add(match[1] ?? "");
+  const legacyPattern = source === "twitter" ? /x\.com\/[^/\s)]+\/status\/(\d+)/gu : /Folo entry `([\w.:-]+)`/gu;
+  for (const match of content.matchAll(legacyPattern)) ids.add(match[1] ?? "");
+  ids.delete("");
+  const count = source === "twitter" ? "tweet_count" : "entry_count";
+  const time = new Date(now).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return content.replace(new RegExp(`^${count}: \\d+$`, "mu"), `${count}: ${ids.size}`)
+    .replace(/^last_updated: .*$/mu, `last_updated: "${time}"`);
+}
+
 function validateDecisions(batch: Batch, input: DecisionInput): Map<string, Decision> {
   if (input.baseline_hash !== batch.baseline_hash || input.decisions.length !== batch.signals.length) {
     throw new MindosError("mindos.input.invalid", "decisions do not match the collection batch");
@@ -72,23 +141,41 @@ async function readDaily(root: string, relative: string): Promise<{ content: str
   }
 }
 
-function renderDaily(batch: Batch, decisions: Map<string, Decision>, date: string, existing: string): string {
-  const additions = batch.signals.filter((signal) => decisions.get(signal.id)?.decision === "keep" && !existing.includes(marker(batch.source, signal.id)));
-  if (additions.length === 0) return existing;
-  let output = existing || `# ${date} ${batch.source === "twitter" ? "Twitter" : "RSS"} 简报\n`;
-  for (const [category, label] of Object.entries(batch.config.categories)) {
+function renderDaily(batch: Batch, decisions: Map<string, Decision>, date: string, existing: string, now: number): string {
+  let output = existing || initialDaily(batch.source, date, now);
+  if (batch.source === "twitter") output = normalizeTwitterManaged(output);
+  else output = normalizeRssManaged(output, batch);
+  const additions = batch.signals.filter((signal) => decisions.get(signal.id)?.decision === "keep"
+    && !output.includes(marker(batch.source, signal.id)) && !output.includes(signal.url));
+  if (additions.length === 0) return output === existing ? existing : updateDailyMetadata(batch.source, output, now);
+  const categories = Object.entries(batch.config.categories);
+  for (const [categoryIndex, [category, label]] of categories.entries()) {
     const grouped = additions.filter((signal) => decisions.get(signal.id)?.category === category);
     if (grouped.length === 0) continue;
-    output = `${output.trimEnd()}\n\n## ${inline(label, 200)}\n`;
+    const heading = `## ${inline(label, 200)}`; let headingIndex = output.indexOf(`${heading}\n`);
+    if (headingIndex < 0) {
+      const laterHeading = categories.slice(categoryIndex + 1).map(([, later]) => output.indexOf(`## ${inline(later, 200)}\n`)).find((index) => index >= 0);
+      if (laterHeading === undefined) output = `${output.trimEnd()}\n\n${heading}\n`;
+      else output = `${output.slice(0, laterHeading).trimEnd()}\n\n${heading}\n\n${output.slice(laterHeading)}`;
+      headingIndex = output.indexOf(`${heading}\n`);
+    }
+    let block = "";
+    let number = nextNumber(output, headingIndex, heading.length);
     for (const signal of grouped) {
       const decision = decisions.get(signal.id) as Decision;
-      output += `\n${marker(batch.source, signal.id)}\n### ${inline(decision.display_title ?? signal.title, 500)}\n\n${inline(decision.display_summary ?? "")}\n\n- 来源：[${inline(signal.title, 500)}](${markdownDestination(signal.url)})`;
-      if (decision.translated) output += `\n- 原文：${inline(signal.title, 500)} — ${inline(signal.content, 1_000)}`;
-      if ((decision.tags?.length ?? 0) > 0) output += `\n- 标签：${decision.tags?.map((tag) => `#${inline(tag, 80)}`).join(" ")}`;
-      output += "\n";
+      if (batch.source === "twitter") {
+        block += `\n${marker(batch.source, signal.id)}\n${number}. **${inline(decision.display_title ?? signal.title, 500)}**：${inline(decision.display_summary ?? "")}\n   — [@${inline(twitterAuthor(signal.url, signal.author), 80)}](${markdownDestination(signal.url)})`;
+      } else {
+        block += `\n${marker(batch.source, signal.id)}\n${number}. **${inline(decision.display_title ?? signal.title, 500)}**：${inline(decision.display_summary ?? "")}\n   — [${inline(rssSource(signal.url, signal.author), 200)}](${markdownDestination(signal.url)}) · Folo entry \`${signal.id}\``;
+      }
+      number += 1;
+      block += "\n";
     }
+    const nextHeading = output.indexOf("\n## ", headingIndex + heading.length);
+    const insertion = nextHeading < 0 ? output.length : nextHeading;
+    output = `${output.slice(0, insertion).trimEnd()}\n${block}${output.slice(insertion)}`;
   }
-  return output;
+  return updateDailyMetadata(batch.source, output, now);
 }
 
 async function setReceipt(root: string, state: JsonState, id: string, receipt: Receipt, phase: Phase, hook?: CommitOptions["afterPhase"]): Promise<void> {
@@ -113,8 +200,9 @@ export async function commitCollection(root: string, source: Source, input: Deci
     const cursors = await readState(root, "cursors"); const currentCursor = typeof cursors.value[source] === "string" ? cursors.value[source] : null;
     if (currentCursor !== batch.initial_cursor && currentCursor !== batch.next_cursor) throw new MindosError("mindos.state.conflict", "provider cursor changed after prepare");
     const seen = await readState(root, "seen"); const sourceSeen = typeof seen.value[source] === "object" && seen.value[source] !== null ? seen.value[source] as Record<string, string> : {};
-    const date = receipt?.date ?? new Date(now).toISOString().slice(0, 10); const target = receipt?.target ?? `${batch.config.output}/${date}.md`;
-    const daily = await readDaily(root, target); const rendered = renderDaily(batch, decisions, date, daily.content);
+    const date = receipt?.date ?? new Date(now).toISOString().slice(0, 10);
+    const target = receipt?.target ?? `${batch.config.output}/${batch.config.filename.replace("{date}", date)}`;
+    const daily = await readDaily(root, target); const rendered = renderDaily(batch, decisions, date, daily.content, now);
     const outputChanged = rendered !== daily.content; const unseen = batch.signals.filter((signal) => !(signal.id in sourceSeen));
     const cursorChanged = batch.next_cursor !== null && currentCursor !== batch.next_cursor;
     const data = { batch_id: batch.id, candidate_count: batch.signals.length, kept: [...decisions.values()].filter((item) => item.decision === "keep").length, discarded: [...decisions.values()].filter((item) => item.decision === "discard").length };

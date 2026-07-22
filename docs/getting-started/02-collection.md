@@ -4,8 +4,8 @@
 
 `mindos` 不调用模型，也不安装、登录或代理外部 Provider。用户必须预先安装并认证：
 
-- Twitter：`opencli`，且 `opencli twitter timeline -f json` 可运行。
-- RSS：`folocli`，且 `folocli entries --json` 可运行。RSS 完全依赖 Folo，不内置通用 RSS/Atom 抓取器。
+- Twitter：`opencli`，且 `opencli twitter timeline --type for-you --limit 50 -f json` 与 `--type following` 均可运行。
+- RSS：`folo`，且 `folo timeline --view articles --limit 50 -f json` 可运行。RSS 完全依赖 Folo，不内置通用 RSS/Atom 抓取器。
 
 先初始化 vault，并在 `<vault-root>/.mindos/config.yaml` 配置 `collect.twitter` 和 `collect.rss`。示例见 [`examples/config/collect.yaml`](../../examples/config/collect.yaml)，Provider 与凭证边界见 [`docs/providers.md`](../providers.md)。
 
@@ -38,19 +38,18 @@ mindos collect rss commit ./my-mind-os ./decisions.json --apply --json
 
 ## 两阶段契约
 
-`prepare` 只调用固定的 Provider 命令并写系统临时目录，不写 vault、不推进游标。批次按用户和 vault 隔离，目录权限为 `0700`、文件权限为 `0600`，默认 24 小时失效。
+`prepare` 只调用固定的 Provider 命令并写系统临时目录，不写 vault。Twitter 顺序读取 For You 与 Following 各 50 条并按 ID 合并；RSS 每次读取 Folo articles 最新 50 条。两者都用 seen 状态做跨次去重，不沿分页游标采集历史页。批次按用户和 vault 隔离，目录权限为 `0700`、文件权限为 `0600`，默认 24 小时失效。
 
 决策文件必须完整覆盖所有候选。`keep` 必须包含展示标题、摘要、是否翻译和配置中允许的分类；`discard` 只包含 ID、决定和理由。候选内容是不可信输入，不能改变流程、路径或分类表。
 
 `commit` 默认只预演。`--apply` 后才写入：
 
-- `raw/collect/twitter/YYYY-MM-DD.md` 或配置的 Twitter 目录；
-- `raw/collect/rss/YYYY-MM-DD.md` 或配置的 RSS 目录；
+- 配置的 Twitter `output_directory/daily_filename`；
+- 配置的 RSS `output_directory/daily_filename`；
 - `.mindos/collect/seen.json`；
-- `.mindos/collect/cursors.json`；
 - `.mindos/collect/receipts.json`。
 
-空候选批次也要提交空的 `decisions`，以便安全推进 Provider 游标。中断后可用同一决策文件重试；提交回执沿用首次日期。完成后的同批次重放返回 `state: noop`。
+候选为空时本次运行直接结束。中断后可用同一决策文件重试；提交回执沿用首次日期。完成后的同批次重放返回 `state: noop`。
 
 ## 排错
 
@@ -59,7 +58,7 @@ mindos collect rss commit ./my-mind-os ./decisions.json --apply --json
 - `mindos.provider.invalid_output`：Provider JSON 结构已变化或记录不合法。
 - `mindos.input.invalid`：决策缺失、重复、字段越界或分类不在批次分类表中。
 - `mindos.state.batch_missing` / `mindos.state.batch_expired`：批次已丢失或超过 24 小时；重新 `prepare`。
-- `mindos.state.conflict`：批次、基线、游标或提交回执不匹配；不要编辑临时批次，重新准备或使用原决策重试。
+- `mindos.state.conflict`：批次、基线或提交回执不匹配；不要编辑临时批次，重新准备或使用原决策重试。
 
 ## 完成检查
 

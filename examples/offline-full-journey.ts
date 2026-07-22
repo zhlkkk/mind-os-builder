@@ -23,13 +23,14 @@ async function fakeProvider(path: string, payload: unknown): Promise<void> {
 
 export async function runOfflineJourney(cli: string, vault: string, workspace: string): Promise<Record<string, unknown>> {
   const bin = join(workspace, "providers"); await mkdir(bin, { recursive: true });
-  await fakeProvider(join(bin, "opencli"), { records: [{ id: "tweet-1", title: "Agent protocol benchmark", text: "Reproducible implementation and measurements.", url: "https://example.com/tweet-1", author: "synthetic" }], next_cursor: "tw-1" });
-  await fakeProvider(join(bin, "folocli"), { entries: [{ id: "rss-1", title: "Protocol release", content: "Official release notes.", link: "https://example.com/rss-1", author: "synthetic" }], cursor: "rss-1" });
+  await fakeProvider(join(bin, "opencli"), { records: [{ id: "tweet-1", title: "Agent protocol benchmark", text: "Reproducible implementation and measurements.", url: "https://example.com/tweet-1", author: "synthetic" }] });
+  await fakeProvider(join(bin, "folo"), { ok: true, data: { entries: [{ entries: { id: "rss-1", title: "Protocol release", content: "Official release notes.", url: "https://example.com/rss-1", author: "synthetic" } }] }, error: null });
   const env = { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}` }; await mkdir(vault, { recursive: true });
   await run(cli, ["doctor", "--json"], env); await run(cli, ["wiki", "init", vault, "--apply", "--json"], env); await run(cli, ["books", "init", vault, "--apply", "--json"], env);
   for (const source of ["twitter", "rss"] as const) {
     const prepared = await run(cli, ["collect", source, "prepare", vault, "--json"], env); const candidates = prepared.data.candidates as Array<{ id: string; title: string }>;
-    const decisions = { version: "v1", batch_id: prepared.data.batch_id, baseline_hash: prepared.data.baseline_hash, decisions: candidates.map((item) => ({ id: item.id, decision: "keep", reason: "合成一手资料", display_title: item.title, display_summary: "合成摘要。", translated: false, category: "other" })) };
+    const category = Object.keys(prepared.data.categories as Record<string, string>)[0];
+    const decisions = { version: "v1", batch_id: prepared.data.batch_id, baseline_hash: prepared.data.baseline_hash, decisions: candidates.map((item) => ({ id: item.id, decision: "keep", reason: "合成一手资料", display_title: item.title, display_summary: "合成摘要。", translated: false, category })) };
     const path = join(workspace, `${source}-decisions.json`); await writeFile(path, JSON.stringify(decisions)); await run(cli, ["collect", source, "commit", vault, path, "--apply", "--json"], env);
   }
   const journalRelative = "journals/2026-07-21.md"; const journal = join(vault, journalRelative); await writeFile(journal, "今天形成了一个判断。 #lumina\n\n下一步执行。 #vector\n");

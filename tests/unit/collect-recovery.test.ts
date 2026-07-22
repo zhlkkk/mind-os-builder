@@ -16,14 +16,14 @@ test("每个提交阶段中断后都沿用首次日期并收敛", async (context
     const id = index.toString(16).padStart(32, "a").slice(-32); const payload: Omit<Batch, "baseline_hash"> = {
       version: "v1", id, vault: await vaultKey(vault), source: "twitter", created_at: first, initial_cursor: null, next_cursor: "next",
       signals: [{ id: `signal-${index}`, title: "Original", content: "details", url: "https://example.test/item", author: "" }],
-      config: { output: "raw/collect/twitter", categories: { other: "其他" }, filters: { include: [], exclude: [], weights: {}, minimum: 0, limit: 50 } },
+      config: { output: "raw/twitter", filename: "{date}-X精选信息简报.md", categories: { other: "其他" }, filters: { include: [], exclude: [], weights: {}, minimum: 0, limit: 50 } },
     };
     const batch: Batch = { ...payload, baseline_hash: batchHash(payload) }; await saveBatch(vault, batch);
     const input: DecisionInput = { version: "v1", batch_id: id, baseline_hash: batch.baseline_hash, decisions: [{ id: `signal-${index}`, decision: "keep", reason: "有效", display_title: "标题", display_summary: "摘要", translated: false, category: "other" }] };
     await assert.rejects(commitCollection(vault, "twitter", input, { apply: true, now: first, afterPhase: (current) => { if (current === phase) throw new Error("synthetic interruption"); } }));
-    const recovered = await commitCollection(vault, "twitter", input, { apply: true, now: later }); assert.equal(recovered.target, "raw/collect/twitter/2026-07-21.md");
-    assert.match(await readFile(join(vault, "raw/collect/twitter/2026-07-21.md"), "utf8"), new RegExp(`signal-${index}`, "u"));
-    await assert.rejects(readFile(join(vault, "raw/collect/twitter/2026-07-22.md"), "utf8"));
+    const recovered = await commitCollection(vault, "twitter", input, { apply: true, now: later }); assert.equal(recovered.target, "raw/twitter/2026-07-21-X精选信息简报.md");
+    assert.match(await readFile(join(vault, "raw/twitter/2026-07-21-X精选信息简报.md"), "utf8"), new RegExp(`signal-${index}`, "u"));
+    await assert.rejects(readFile(join(vault, "raw/twitter/2026-07-22-X精选信息简报.md"), "utf8"));
     assert.equal((await commitCollection(vault, "twitter", input, { apply: true, now: later })).changed, false);
   }
 });

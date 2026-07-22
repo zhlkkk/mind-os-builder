@@ -1,13 +1,13 @@
 # Provider 配置与安全边界
 
-Provider 只负责从用户已经配置好的外部工具获取记录和下一游标。它不写 vault、不执行语义判断，也不决定最终简报。`mindos` 固定执行 `fetch → normalize → deterministic filter → temporary batch → outer Agent decision → validate → commit`。
+Provider 只负责从用户已经配置好的外部工具获取记录。它不写 vault、不执行语义判断，也不决定最终简报。`mindos` 固定执行 `fetch → normalize → deterministic filter → temporary batch → outer Agent decision → validate → commit`。
 
 ## 采集 Provider
 
 | 来源 | 唯一 Provider | 前置命令 | 安装与认证责任 |
 |---|---|---|---|
-| Twitter | OpenCLI | `opencli twitter timeline -f json` | 用户 |
-| RSS | Folo CLI | `folocli entries --json` | 用户 |
+| Twitter | OpenCLI | `opencli twitter timeline --type for-you --limit 50 -f json` 与 `--type following` | 用户 |
+| RSS | Folo CLI | `folo timeline --view articles --limit 50 -f json` | 用户 |
 
 项目不会自动安装或认证这两个工具，也不会保存它们的 Cookie、Token 或账号信息。RSS 完全依赖 Folo；没有内置 HTTP 抓取器、feed URL 参数、fixture Provider 或运行时 Provider 选择。
 
@@ -20,7 +20,8 @@ Provider 只负责从用户已经配置好的外部工具获取记录和下一�
 ```yaml
 collect:
   twitter:
-    output_directory: raw/collect/twitter
+    output_directory: raw/twitter
+    daily_filename: "{date}-X精选信息简报.md"
     filters:
       include_any: []
       exclude_any: []
@@ -31,7 +32,8 @@ collect:
       agent-systems: Agent 系统
       other: 其他
   rss:
-    output_directory: raw/collect/rss
+    output_directory: raw/rss
+    daily_filename: "{date}-Folo精选信息简报.md"
     filters:
       include_any: []
       exclude_any: []
@@ -49,6 +51,7 @@ collect:
 - `output_limit`：候选上限，最多 200；同分保持 Provider 顺序。
 - `categories`：外层 Agent 只能选择这里声明的分类键。
 - `output_directory`：必须是 vault 内 `raw/` 下的相对目录。
+- `daily_filename`：必须是包含且只包含一个 `{date}` 占位符的 Markdown 文件名，不能包含目录或 `..`。
 
 配置只保存业务规则，不保存密钥、Token、Cookie、用户名或第三方 CLI 的认证文件。采集命令固定从 vault 配置读取，不接受另一份配置路径。
 
@@ -56,7 +59,7 @@ collect:
 
 Twitter 使用 `.agents/skills/twitter-digest/`，RSS 使用 `.agents/skills/rss-digest/`。每个 Skill 将筛选、翻译摘要、分类和决策组装拆成独立提示词。宿主可以是 Claude Code、Codex、Pi、Hermes、OpenClaw 或 WorkBuddy；CLI 契约不依赖具体宿主或模型。
 
-CLI 不执行提示词，也不信任 Agent 输出。`commit` 会检查完整覆盖、字段集合、合法分类、批次基线、vault 归属和游标状态；只有显式 `--apply` 才写 vault。
+CLI 不执行提示词，也不信任 Agent 输出。`commit` 会检查完整覆盖、字段集合、合法分类、批次基线和 vault 归属；只有显式 `--apply` 才写 vault。
 
 ## Tech Research Provider
 
@@ -95,7 +98,7 @@ CLI 不联网、不调用模型、不执行提示词，也不会覆盖同名不�
 - `mindos.provider.command_failed`：外部命令退出失败或超时。
 - `mindos.provider.invalid_output`：外部 JSON 结构或记录不合法。
 - `mindos.state.batch_missing` / `mindos.state.batch_expired`：临时批次不可用。
-- `mindos.state.conflict`：批次、基线、游标或回执发生冲突。
+- `mindos.state.conflict`：批次、基线或回执发生冲突。
 
 公开结果不会包含 Provider stdout/stderr，避免泄漏凭证、用户数据和本机路径。原始候选只保存在权限受限的系统临时批次中；提交回执不保存候选正文。
 
@@ -108,3 +111,5 @@ npm run test:u4
 ```
 
 真实账号可用性不属于离线测试保证；它由用户在自己的 Provider CLI 中验证。
+
+当前采集是“最新窗口”而不是历史分页：Twitter 每次顺序读取 For You 与 Following 各 50 条并按 ID 合并，RSS 每次读取 Folo articles 最新 50 条；跨小时去重由 `.mindos/collect/seen.json` 完成。

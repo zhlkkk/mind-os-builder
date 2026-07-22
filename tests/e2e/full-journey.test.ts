@@ -22,7 +22,7 @@ test("npm tarball 在空前缀完成公开离线旅程且不启动 Python", asyn
   try { journey = await runOfflineJourney(cli, join(root, "vault"), join(root, "work")); }
   finally { if (previousPath === undefined) delete process.env.PATH; else process.env.PATH = previousPath; if (previousLog === undefined) delete process.env.MINDOS_PYTHON_INVOCATIONS; else process.env.MINDOS_PYTHON_INVOCATIONS = previousLog; }
   assert.equal(journey.version, "v1"); assert.equal(journey.jobs, 6); assert.equal(await readFile(invocationLog, "utf8"), "");
-  for (const path of ["AGENTS.md", "wiki/index.md", "wiki/books/books.base", "raw/research/2026-07-21-synthetic.md", ".mindos/collect/seen.json"]) await access(join(root, "vault", path));
+  for (const path of [".gitignore", "AGENTS.md", "templates/daily-note.md", "published/assets", "wiki/index.md", "wiki/books/books.base", "raw/research/2026-07-21-synthetic.md", ".mindos/collect/seen.json"]) await access(join(root, "vault", path));
   assert.deepEqual((await readdir(join(root, "work/host/.agents/skills/distill/references/roles"))).sort(), ["ember.md", "lumina.md", "nexus.md", "prism.md", "vector.md"]);
   const packageFiles = await readdir(join(prefix, "node_modules/mind-os-builder")); assert.equal(packageFiles.includes("pyproject.toml"), false); assert.equal(packageFiles.includes("uv.lock"), false);
 });

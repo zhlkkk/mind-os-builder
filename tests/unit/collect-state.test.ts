@@ -12,7 +12,7 @@ test("批次按 vault 隔离、限制权限、校验完整性与 24 小时 TTL",
   const root = await mkdtemp(join(tmpdir(), "mindos-batch-")); context.after(async () => rm(root, { recursive: true, force: true }));
   const vault = join(root, "vault"); const other = join(root, "other"); await initializeWiki(vault, true); await initializeWiki(other, true);
   const now = Date.now();
-  const payload: Omit<Batch, "baseline_hash"> = { version: "v1", id: "a".repeat(32), vault: await vaultKey(vault), source: "rss", created_at: now - 25 * 3_600_000, initial_cursor: null, next_cursor: null, signals: [], config: { output: "raw/collect/rss", categories: { other: "其他" }, filters: { include: [], exclude: [], weights: {}, minimum: 0, limit: 50 } } };
+  const payload: Omit<Batch, "baseline_hash"> = { version: "v1", id: "a".repeat(32), vault: await vaultKey(vault), source: "rss", created_at: now - 25 * 3_600_000, initial_cursor: null, next_cursor: null, signals: [], config: { output: "raw/rss", filename: "{date}-Folo精选信息简报.md", categories: { other: "其他" }, filters: { include: [], exclude: [], weights: {}, minimum: 0, limit: 50 } } };
   const batch: Batch = { ...payload, baseline_hash: batchHash(payload) }; await saveBatch(vault, batch); const path = await batchFile(vault, batch.id);
   assert.equal((await stat(path)).mode & 0o777, 0o600); assert.equal((await stat(dirname(path))).mode & 0o777, 0o700);
   await assert.rejects(loadBatch(vault, batch.id, "rss", false, now), (error: unknown) => error instanceof MindosError && error.code === "mindos.state.batch_expired");
