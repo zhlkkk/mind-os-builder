@@ -60,9 +60,9 @@ Mind OS Builder 将“如何搭建个人 Mind OS”做成一个可执行课程�
 **知识能力**
 
 - R10. LLM Wiki 模块必须提供初始化和 lint 的确定性实现，并提供 Ingest、Query 回流和 Lint 的 Agent Skill 契约；lint 至少检查 frontmatter、索引、wikilinks、孤页、红链、超长页和受保护目录。
-- R11. 采集模块必须按 Fetch、Normalize、Filter、可选 LLM Review、Render、Validate、Promote 分层，并至少跑通 Twitter 与 RSS 两条真实链路。
+- R11. 采集模块必须把执行层与判断层分开：CLI 负责 Fetch、Normalize、Filter、临时批次、Validate 与 Promote，外层 Agent 按独立提示词生成结构化决策；至少跑通 Twitter 与 RSS 两条真实链路。
 - R12. Twitter 必须有夹具 Provider 和一个 macOS 实测 Provider；RSS 必须以通用 RSS/Atom Provider 为确定性基线，Folo CLI 只能作为实验 Provider。
-- R13. 过滤规则必须从 Provider 和 LLM 提示中分离，支持用户配置的包含、排除、评分与输出限制，并在结果中报告每条过滤原因和各阶段计数。
+- R13. 确定性过滤规则必须从 Provider 和 Agent 提示词中分离，支持用户配置的包含、排除、评分与输出限制；语义筛选、翻译摘要和分类提示词必须作为独立 Skill 资源维护。
 - R14. Book Base 模块必须生成 RIA 书籍模板、规范化 frontmatter 和显式限定 `wiki/books` 的 Obsidian `.base` 文件，并能校验已有书页是否符合属性约定。
 - R15. Distill 必须由一个编排 Agent 管理 Lumina、Prism、Vector、Nexus、Ember 五个角色；标签扫描、段落定位、幂等、追加、锁和写入边界由确定性核心负责，模型只负责角色判断和回复正文。
 - R16. Tech Research 必须支持可替换研究 Provider、分模式运行、证据和引用保存、部分 Provider 失败继续、阶段性进度、取消、checkpoint/resume 与最终研报输出，不得把多模型草稿直接当成事实或在恢复时重复已完成的付费调用。
@@ -90,7 +90,7 @@ Mind OS Builder 将“如何搭建个人 Mind OS”做成一个可执行课程�
   - **覆盖：**R1-R10。
 - F2. **采集并提升一份信号简报**
   - **触发：**A1 或 A2 运行 Twitter/RSS 采集命令或对应 Job。
-  - **步骤：**Provider 抓取并返回游标，管线规范化、确定性过滤、可选 LLM Review、渲染和校验；dry-run 仅给报告，apply 才提升到 `raw/`。
+  - **步骤：**Provider 抓取并返回游标，CLI 规范化、确定性过滤并生成临时批次；外层 Agent 生成完整决策，CLI 预演校验后才显式 apply 到 `raw/`。
   - **结果：**成功产物可追溯到来源；Provider 失败、限流或空结果都有结构化状态，不产生半成品。
   - **覆盖：**R5-R13、R20-R22。
 - F3. **建立并使用 Book Base**
@@ -431,17 +431,17 @@ U1 和 U2 建立发布边界、包结构、运行包络与安全写入；U3-U6 �
 - **Goal：**实现可替换的数据源、独立过滤规则和可审计提升链路，跑通 Twitter 与 RSS。
 - **Requirements：**R5-R13、R22-R23；实现 KTD8-KTD10。
 - **Dependencies：**U2。
-- **Files：**`src/mind_os_builder/collect/models.py`、`src/mind_os_builder/collect/contracts.py`、`src/mind_os_builder/collect/pipeline.py`、`src/mind_os_builder/collect/cursors.py`、`src/mind_os_builder/collect/providers/rss_feed.py`、`src/mind_os_builder/collect/providers/twitter_fixture.py`、`src/mind_os_builder/collect/providers/twitter_opencli.py`、`src/mind_os_builder/collect/providers/folo_cli.py`、`src/mind_os_builder/collect/filters/rules.py`、`src/mind_os_builder/collect/filters/llm_review.py`、`src/mind_os_builder/collect/renderers/brief.py`、`src/mind_os_builder/assets/vault/collect/config.yaml`、`tests/unit/test_collect_rules.py`、`tests/unit/test_collect_cursors.py`、`tests/integration/test_collect_rss.py`、`tests/integration/test_collect_twitter.py`、`tests/contract/test_provider_contract.py`、`tests/live/test_live_twitter.py`、`tests/live/test_live_rss.py`。
-- **Approach：**定义规范 Signal 与 Provider capability；Provider 不写 vault。管线在临时目录保留每阶段 JSON，确定性规则先降噪，可选 LLM Review 只返回结构化决策；验证引用、语言、重复 ID 和 frontmatter 后才提升。游标只在最终提升成功后提交，partial failure 不前移。
+- **Files：**`src/mind_os_builder/collect/models.py`、`src/mind_os_builder/collect/contracts.py`、`src/mind_os_builder/collect/pipeline.py`、`src/mind_os_builder/collect/batches.py`、`src/mind_os_builder/collect/decisions.py`、`src/mind_os_builder/collect/twitter_workflow.py`、`src/mind_os_builder/collect/cursors.py`、`src/mind_os_builder/collect/seen.py`、`src/mind_os_builder/collect/providers/rss_feed.py`、`src/mind_os_builder/collect/providers/twitter_fixture.py`、`src/mind_os_builder/collect/providers/twitter_opencli.py`、`src/mind_os_builder/collect/providers/folo_cli.py`、`src/mind_os_builder/collect/filters/rules.py`、`.agents/skills/twitter-digest/`、`tests/integration/test_collect_rss.py`、`tests/integration/test_collect_twitter_staged.py`、`tests/contract/test_provider_contract.py`、`tests/live/test_live_twitter.py`、`tests/live/test_live_rss.py`。
+- **Approach：**定义规范 Signal 与 Provider capability；Provider 不写 vault。Twitter CLI 先在临时目录生成带基线的候选批次，外层 Agent 按独立提示词完成筛选、翻译摘要和分类，CLI 再校验完整决策、按日去重并提升。游标和已处理状态只在最终提交成功后前移。
 - **Execution note：**先从现有 Twitter/RSS 测试抽取行为夹具，不复制个人作者名单、关键词和输出；真实 Provider 在离线契约通过后再烟测。
-- **Patterns to follow：**保留现有 `run_x_twitter_raw → candidates → llm_summary → brief_draft → raw_brief` 的阶段证据、Provider fallback 和每日简报去重；把 `x_twitter.py`、`rss_folo.py` 中混合的职责拆开。
+- **Patterns to follow：**保留现有抓取、候选、决策、简报阶段证据和每日去重，但用 `prepare → outer Agent → commit` 取代脚本内模型调用；把 `x_twitter.py`、`rss_folo.py` 中混合的职责拆开。
 - **Test scenarios：**
   - RSS/Atom 多 feed 正常、单 feed 超时、重复 guid、缺发布日期、HTML 正文和恶意提示文本均产生预期规范化与过滤结果。
-  - Twitter fixture 验证具体工程信号保留、空泛趋势/收益故事过滤、现有简报合并去重和引用修复。
+  - Twitter fixture 验证候选批次、决策完整覆盖、翻译分类、按日合并去重和引用校验。
   - OpenCLI 不存在、输出非 JSON、认证失效、超时、429/预算错误时返回明确 Provider error，不提升产物。
-  - LLM Provider 全不可用时按配置选择启发式降级或失败；降级必须出现在 warnings，不能伪装为完整 LLM 审阅。
+  - 外层 Agent 缺席时停在 `agent_decision_required`，CLI 不内嵌模型、不启用启发式语义降级。
   - apply 成功后游标前移；验证失败或 promote 冲突时游标不变。
-- **Verification：**CI 完成 Twitter/RSS 离线管线；macOS 烟测真实生成两份带来源、计数和过滤报告的简报。
+- **Verification：**CI 完成 Twitter 两阶段与 RSS 离线管线；macOS 烟测真实生成两份带来源、计数和过滤报告的简报。
 
 ### U4. Book Base and RIA Module
 
