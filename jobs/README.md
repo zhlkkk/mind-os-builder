@@ -5,6 +5,7 @@
 ```bash
 mindos jobs list --json
 mindos jobs show lint --json
+mindos jobs export lint --adapter cron --input vault=/绝对路径/Mind-OS --executable /绝对路径/mindos --json
 ```
 
-CLI 只校验和展示，不提供 `jobs run`、线程、取消、恢复或调度器。Claude Code、Codex、Pi、Hermes、OpenClaw、WorkBuddy、cron、launchd 或用户自己的 Agent 可以读取这些文件并选择是否执行。`command` 必须按 argv 传给进程，不能拼成 shell 字符串；写操作仍需运行层显式授权 `--apply`。
+CLI 只校验、展示并生成适配配置，不安装或执行任务，也不提供 `jobs run`、线程、取消、恢复或调度器。`jobs export` 支持 `cron`、`launchd` 和通用 `agent`；系统调度器只接收 command Job，Skill Job 交给 Agent。`command` 必须按 argv 传给进程；写操作仍需运行层显式授权 `--apply`。完整说明见 [`docs/jobs.md`](../docs/jobs.md)。

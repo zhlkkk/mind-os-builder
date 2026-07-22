@@ -17,3 +17,5 @@ mindos skills install codex --scope project --project /绝对路径/目标项目
 ```
 
 安装器复制完整 Skill，不覆盖冲突。Distill 副本同时物化五个中立角色文件。MCP 是可选项，统一启动命令为 `mindos mcp serve /绝对路径/vault`。
+
+自动任务不绑定到某个 Agent 产品。`mindos jobs export <id> --adapter agent ...` 会生成符合 `contracts/agent-job.schema.json` 的宿主中立任务清单；`cron` 和 `launchd` Adapter 则只生成命令型 Job 的配置。三者都不负责安装或执行。

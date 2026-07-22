@@ -18,7 +18,14 @@ mindos jobs list --json
 mindos jobs show lint --json
 ```
 
-运行层把 `command` 当 argv，把 `skill` 交给 Agent，并遵守 effects 与 schedule。项目不执行 Job，也不提供调度器；cron、launchd、CI 和 Agent 工具都是可选运行层。
+不想自己解释 YAML 时，可以生成宿主配置：
+
+```bash
+mindos jobs export lint --adapter cron --input vault=/绝对路径/Mind-OS --executable /绝对路径/mindos --json
+mindos jobs export distill --adapter agent --input vault=/绝对路径/Mind-OS --input source=journals/2026-07-22.md --json
+```
+
+运行层把 `command` 当 argv，把 `skill` 交给 Agent，并遵守 effects 与 schedule。导出结果只供审查，不会安装或执行；cron、launchd、CI 和 Agent 工具仍是可选运行层。完整限制和 launchd 示例见 [`jobs.md`](../jobs.md)。
 
 ## 可选 MCP
 
@@ -32,4 +39,4 @@ Server 只暴露四个静态工具，vault 在启动时固定。`mindos_wiki_ini
 
 ## 完成检查
 
-确认 Skill 重复安装返回 `noop`，`jobs list` 返回六个任务；MCP 宿主能列出四个工具，并且 CLI 与 MCP lint 的 v1 JSON 领域字段一致。
+确认 Skill 重复安装返回 `noop`，`jobs list` 返回六个任务，`jobs export` 返回 `preview`；MCP 宿主能列出四个工具，并且 CLI 与 MCP lint 的 v1 JSON 领域字段一致。

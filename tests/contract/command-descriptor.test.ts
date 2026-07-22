@@ -44,6 +44,7 @@ test("命令描述符发布分阶段命令和代理下一步", () => {
       "research.commit",
       "jobs.list",
       "jobs.show",
+      "jobs.export",
       "mcp.serve",
     ],
   );

@@ -100,6 +100,11 @@ commands:
     effects: [workspace.read]
     agent_next_step: 校验输入与 effects 后由宿主执行。
     stable_errors: [mindos.input.invalid]
+  - name: jobs.export
+    result_schema: contracts/cli-result.schema.json
+    effects: [workspace.read]
+    agent_next_step: 审查生成内容后，交给所选宿主安装或执行。
+    stable_errors: [mindos.input.invalid]
   - name: mcp.serve
     transport: mcp-stdio
     effects: [workspace.read]
