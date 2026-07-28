@@ -13,7 +13,7 @@ npm run audit:release
 ```
 
 - `npm test`：契约、路径安全、Wiki、Books、采集、Distill、Radar、Research、Jobs、MCP 和 npm tarball E2E。
-- `test:pack`：验证规范资产、可选 MCP 与空前缀完整旅程。
+- `test:pack`：验证规范资产、可选 MCP 与空前缀完整流程。
 - `audit:architecture`：核心 TypeScript 非空行不超过 2500、核心依赖不超过三个、无平台运行时符号。
 - `audit:release`：源码和 tarball 无 Python 入口、私人绝对路径、疑似凭证、真实 raw 或测试文件。
 

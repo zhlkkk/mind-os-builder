@@ -1,11 +1,11 @@
 # 声明式 Jobs
 
-Job 是给外部运行层看的版本化 YAML，不是仓库内置的任务引擎。它有两种入口：
+Job 用版本化 YAML 描述外部运行层要执行的任务。仓库不提供任务引擎。Job 有两种入口：
 
 - `command`：以 `mindos` 开头的 argv 数组，变量只能引用 `inputs` 中已声明的键。
-- `skill`：指向 `.agents/skills/<name>/SKILL.md`，由外层 Agent 执行判断流程。
+- `skill`：指向 `.agents/skills/<name>/SKILL.md`，由 Agent 执行判断流程。
 
-两者不能同时存在。每个 Job 还声明 `effects`、`single|parallel` 并发提示、最多三次的重试上限和可选 `schedule`。schedule 是人类可读建议，不代表仓库会启动守护进程。
+两者不能同时存在。每个 Job 还声明 `effects`、`single|parallel` 并发提示、最多三次的重试上限和可选 `schedule`。`schedule` 只提供给运行宿主和用户参考，仓库不会据此启动守护进程。
 
 ## 查看任务
 
@@ -15,7 +15,7 @@ mindos jobs show collect-twitter --json
 mindos jobs show tech-research --json
 ```
 
-CLI 会验证全部内置 YAML、命令是否存在、Skill 是否存在、变量绑定和 shell 元字符，但绝不执行 Job。项目没有 `jobs run`、队列、线程状态、cancel 或 resume。
+CLI 会验证全部内置 YAML、命令是否存在、Skill 是否存在、变量绑定和 shell 元字符，但不会执行 Job。项目没有 `jobs run`、队列、线程状态、cancel 或 resume。
 
 ## 导出到运行宿主
 
@@ -61,7 +61,7 @@ mindos jobs export distill \
   --json
 ```
 
-产物符合 [`contracts/agent-job.schema.json`](../contracts/agent-job.schema.json)，包含解析后的 command 或 skill、effects、并发、重试和 schedule。`execution.mode` 固定为 `host-controlled`，`apply_authorized` 固定为 `false`：外层 Agent 仍需按自己的权限模型决定执行和写入。使用 Skill Job 前，应先用 `mindos skills install <host>` 把 Skills 安装到目标宿主。
+产物符合 [`contracts/agent-job.schema.json`](../contracts/agent-job.schema.json)，包含解析后的 command 或 skill、effects、并发、重试和 schedule。`execution.mode` 固定为 `host-controlled`，`apply_authorized` 固定为 `false`：Agent 仍需按自己的权限模型决定执行和写入。使用 Skill Job 前，应先用 `mindos skills install <host>` 把 Skills 安装到目标宿主。
 
 | Adapter | command Job | skill Job | 是否安装或执行 |
 |---|---:|---:|---:|

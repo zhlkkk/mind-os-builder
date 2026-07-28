@@ -1,10 +1,10 @@
 # Provider 配置与安全边界
 
-Provider 只负责从用户已经配置好的外部工具获取记录。它不写 vault、不执行语义判断，也不决定最终简报。`mindos` 固定执行 `fetch → normalize → deterministic filter → temporary batch → outer Agent decision → validate → commit`。
+Provider 从用户已经配置好的外部工具获取记录，不写 vault，也不决定哪些内容进入简报。`mindos` 按固定顺序执行：`抓取 → 规范化 → 规则过滤 → 临时批次 → Agent 决策 → 校验 → 提交`。
 
 ## 采集 Provider
 
-| 来源 | 唯一 Provider | 前置命令 | 安装与认证责任 |
+| 来源 | Provider | 前置命令 | 安装与认证责任 |
 |---|---|---|---|
 | Twitter | OpenCLI | `opencli twitter timeline --type for-you --limit 50 --window background -f json` 与 `--type following` | 用户 |
 | RSS | Folo CLI | `folo timeline --view articles --limit 50 -f json` | 用户 |
@@ -50,7 +50,7 @@ collect:
 - `exclude_any`：命中即排除，优先于评分。
 - `weights` 与 `minimum_score`：确定性评分和门槛。
 - `output_limit`：候选上限，最多 200；同分保持 Provider 顺序。
-- `categories`：外层 Agent 只能选择这里声明的分类键。
+- `categories`：Agent 只能选择这里声明的分类键。
 - `output_directory`：必须是 vault 内 `raw/` 下的相对目录。
 - `daily_filename`：必须是包含且只包含一个 `{date}` 占位符的 Markdown 文件名，不能包含目录或 `..`。
 - `mark_read_after_commit`：仅适用于 RSS，布尔值，默认 `false`；开启后在本地提交成功后调用 Folo，把本批次所有已判断条目标记为已读。
@@ -65,7 +65,7 @@ CLI 不执行提示词，也不信任 Agent 输出。`commit` 会检查完整覆
 
 ## Tech Research Provider
 
-Tech Research 与采集模块分离。它不再有内置 Provider Runtime，也不从 `.mindos/config.yaml`、进程环境或 CLI 参数读取研究 Key。外层 Agent 使用当前宿主已经提供的能力完成研究，`mindos` 只校验和提交候选报告。
+Tech Research 与采集模块分离。项目不提供内置 Provider Runtime，也不从 `.mindos/config.yaml`、进程环境或 CLI 参数读取研究 Key。Agent 使用宿主已有的工具完成研究，`mindos` 只校验和提交候选报告。
 
 Skill 按能力而不是厂商选择工具：
 
