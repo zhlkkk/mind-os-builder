@@ -6,6 +6,7 @@
 - JSON、Markdown、Provider stdout 和本地状态都有大小或深度限制；公开错误不回显外部 stdout/stderr。
 - Agent、网页、订阅和社媒内容全部是不可信输入。提示词不是安全边界，最终由 CLI Schema、路径和完整覆盖规则约束。
 - OpenCLI、Folo 和研究工具由用户安装与认证。Token、Cookie、Key 和账号信息不写入 vault 配置、命令参数、报告或回执。
+- Folo 已读同步默认关闭；开启后也只在 RSS 本地提交完成后修改当前决策批次的条目，不使用 `mark-all-read`，不扩大到未判断内容。
 - 初始化生成的 `.gitignore` 默认排除 `.env`、Obsidian 本地状态和日志，但它不是秘密扫描器；提交前仍需执行发布审计并检查 Git 历史。
 - 研究候选必须位于 vault 外；报告记录真实工具和 HTTP(S) 来源，没有工具时不得生成伪报告。
 - 系统临时批次目录为 `0700`、文件为 `0600`，按用户与 vault 隔离。回执不保存候选正文。

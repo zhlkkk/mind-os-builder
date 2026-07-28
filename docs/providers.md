@@ -6,7 +6,7 @@ Provider 只负责从用户已经配置好的外部工具获取记录。它不�
 
 | 来源 | 唯一 Provider | 前置命令 | 安装与认证责任 |
 |---|---|---|---|
-| Twitter | OpenCLI | `opencli twitter timeline --type for-you --limit 50 -f json` 与 `--type following` | 用户 |
+| Twitter | OpenCLI | `opencli twitter timeline --type for-you --limit 50 --window background -f json` 与 `--type following` | 用户 |
 | RSS | Folo CLI | `folo timeline --view articles --limit 50 -f json` | 用户 |
 
 项目不会自动安装或认证这两个工具，也不会保存它们的 Cookie、Token 或账号信息。RSS 完全依赖 Folo；没有内置 HTTP 抓取器、feed URL 参数、fixture Provider 或运行时 Provider 选择。
@@ -34,6 +34,7 @@ collect:
   rss:
     output_directory: raw/rss
     daily_filename: "{date}-Folo精选信息简报.md"
+    mark_read_after_commit: false
     filters:
       include_any: []
       exclude_any: []
@@ -52,6 +53,7 @@ collect:
 - `categories`：外层 Agent 只能选择这里声明的分类键。
 - `output_directory`：必须是 vault 内 `raw/` 下的相对目录。
 - `daily_filename`：必须是包含且只包含一个 `{date}` 占位符的 Markdown 文件名，不能包含目录或 `..`。
+- `mark_read_after_commit`：仅适用于 RSS，布尔值，默认 `false`；开启后在本地提交成功后调用 Folo，把本批次所有已判断条目标记为已读。
 
 配置只保存业务规则，不保存密钥、Token、Cookie、用户名或第三方 CLI 的认证文件。采集命令固定从 vault 配置读取，不接受另一份配置路径。
 
@@ -59,7 +61,7 @@ collect:
 
 Twitter 使用 `.agents/skills/twitter-digest/`，RSS 使用 `.agents/skills/rss-digest/`。每个 Skill 将筛选、翻译摘要、分类和决策组装拆成独立提示词。宿主可以是 Claude Code、Codex、Pi、Hermes、OpenClaw 或 WorkBuddy；CLI 契约不依赖具体宿主或模型。
 
-CLI 不执行提示词，也不信任 Agent 输出。`commit` 会检查完整覆盖、字段集合、合法分类、批次基线和 vault 归属；只有显式 `--apply` 才写 vault。
+CLI 不执行提示词，也不信任 Agent 输出。`commit` 会检查完整覆盖、字段集合、合法分类、批次基线和 vault 归属；只有显式 `--apply` 才写 vault，并且只有 RSS 已读开关明确开启时才修改 Folo 外部状态。
 
 ## Tech Research Provider
 

@@ -29,3 +29,12 @@ test("每日文件模板不能逃逸采集目录", async (context) => {
   await writeFile(join(root, ".mindos/config.yaml"), "collect:\n  twitter:\n    daily_filename: '../{date}.md'\n");
   await assert.rejects(loadCollectConfig(root, "twitter"), (error: unknown) => error instanceof MindosError && error.code === "mindos.input.invalid");
 });
+
+test("RSS 已读同步默认关闭且只接受布尔配置", async (context) => {
+  const root = await mkdtemp(join(tmpdir(), "mindos-rss-read-config-")); context.after(async () => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, ".mindos")); const path = join(root, ".mindos/config.yaml");
+  await writeFile(path, "collect:\n  rss: {}\n");
+  assert.equal((await loadCollectConfig(root, "rss")).markReadAfterCommit, false);
+  await writeFile(path, "collect:\n  rss:\n    mark_read_after_commit: enabled\n");
+  await assert.rejects(loadCollectConfig(root, "rss"), (error: unknown) => error instanceof MindosError && error.code === "mindos.input.invalid");
+});

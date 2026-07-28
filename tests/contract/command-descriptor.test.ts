@@ -66,6 +66,8 @@ test("命令描述符发布分阶段命令和代理下一步", () => {
     assert.match(command.agent_next_step, /\S/);
     assert.ok(command.stable_errors.every((code) => code.startsWith("mindos.")));
   }
+  assert.deepEqual(descriptor.commands.find((command) => command.name === "collect.rss.commit")?.effects, ["workspace.write", "network.write"]);
+  assert.deepEqual(descriptor.commands.find((command) => command.name === "collect.twitter.commit")?.effects, ["workspace.write"]);
 });
 
 test("命令描述符拒绝未知字段和无效技能引用", () => {

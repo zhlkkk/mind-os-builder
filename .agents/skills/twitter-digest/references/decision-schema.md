@@ -30,3 +30,5 @@
 `batch_id`、`baseline_hash` 和每个 `id` 必须原样复制。`decisions` 必须恰好覆盖批次中的所有候选，不能缺失、重复或增加 ID。
 
 所有决定都必须包含 `id`、`decision` 和非空 `reason`。`keep` 还必须包含非空 `display_title`、`display_summary`、布尔值 `translated`、本批次允许的 `category`；`tags` 可省略，提供时必须是最多 8 个非空且不重复的字符串。`discard` 不得包含展示字段。
+
+提交器还会阻止明显的机械决策：保留项不得把裸 `t.co` 短链作为标题或摘要，40 字以内的标题和摘要不得完全相同；候选达到 10 条时，不得全部保留且使用同一个理由。

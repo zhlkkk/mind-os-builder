@@ -30,7 +30,8 @@ function isBatch(value: unknown): value is Batch {
       && typeof signal.url === "string" && typeof signal.author === "string")
     && typeof config === "object" && config !== null && typeof config.output === "string" && typeof config.filename === "string"
     && typeof config.categories === "object" && config.categories !== null && !Array.isArray(config.categories)
-    && typeof config.filters === "object" && config.filters !== null;
+    && typeof config.filters === "object" && config.filters !== null
+    && (config.markReadAfterCommit === undefined || typeof config.markReadAfterCommit === "boolean");
 }
 
 export async function saveBatch(root: string, batch: Batch): Promise<void> {

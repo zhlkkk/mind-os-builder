@@ -71,7 +71,7 @@ mindos wiki lint ./demo-vault --json
 ## 核心边界
 
 - CLI 不调用模型；Agent 负责筛选、翻译、摘要、角色回复、研究综合和人工决定。
-- Twitter 只依赖用户预装的 OpenCLI；RSS 完全依赖用户预装的 Folo CLI，项目不自动安装或认证。
+- Twitter 只依赖用户预装的 OpenCLI；RSS 完全依赖用户预装的 Folo CLI，项目不自动安装或认证。RSS 可显式开启提交后的逐条已读同步，默认关闭。
 - Tech Research 使用宿主已有的 Web、MCP、插件或 CLI；Provider Key 不进入项目配置。
 - Job 只声明 argv 或 Skill；CLI 可生成 cron、launchd 或通用 Agent 配置，但不安装、不执行，也不提供调度器。
 - MCP 是可选本地 stdio 适配器，只静态转发四个 CLI 原语。

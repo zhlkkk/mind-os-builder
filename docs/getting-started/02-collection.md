@@ -4,8 +4,8 @@
 
 `mindos` 不调用模型，也不安装、登录或代理外部 Provider。用户必须预先安装并认证：
 
-- Twitter：`opencli`，且 `opencli twitter timeline --type for-you --limit 50 -f json` 与 `--type following` 均可运行。
-- RSS：`folo`，且 `folo timeline --view articles --limit 50 -f json` 可运行。RSS 完全依赖 Folo，不内置通用 RSS/Atom 抓取器。
+- Twitter：`opencli`，且 `opencli twitter timeline --type for-you --limit 50 --window background -f json` 与 `--type following` 均可运行。
+- RSS：`folo`，且 `folo timeline --view articles --limit 50 -f json` 可运行。启用已读同步时还需确认 `folo entry mark-read <entryId>` 可运行。RSS 完全依赖 Folo，不内置通用 RSS/Atom 抓取器。
 
 先初始化 vault，并在 `<vault-root>/.mindos/config.yaml` 配置 `collect.twitter` 和 `collect.rss`。示例见 [`examples/config/collect.yaml`](../../examples/config/collect.yaml)，Provider 与凭证边界见 [`docs/providers.md`](../providers.md)。
 
@@ -36,11 +36,21 @@ mindos collect rss commit ./my-mind-os ./decisions.json --apply --json
 
 让宿主 Agent 使用 `.agents/skills/rss-digest/SKILL.md` 生成决策。项目不接受 feed URL，也不在配置中选择其他 RSS Provider。
 
+如需在任务完成后同步 Folo 已读状态，在 vault 配置中显式开启：
+
+```yaml
+collect:
+  rss:
+    mark_read_after_commit: true
+```
+
+该开关默认关闭。开启后，只有 `commit --apply` 完成本地提交才会把本批次全部已判断条目标记为已读；保留和拒绝都会标记，preview 和确定性过滤掉的条目不会标记。
+
 ## 两阶段契约
 
 `prepare` 只调用固定的 Provider 命令并写系统临时目录，不写 vault。Twitter 顺序读取 For You 与 Following 各 50 条并按 ID 合并；RSS 每次读取 Folo articles 最新 50 条。两者都用 seen 状态做跨次去重，不沿分页游标采集历史页。批次按用户和 vault 隔离，目录权限为 `0700`、文件权限为 `0600`，默认 24 小时失效。
 
-决策文件必须完整覆盖所有候选。`keep` 必须包含展示标题、摘要、是否翻译和配置中允许的分类；`discard` 只包含 ID、决定和理由。候选内容是不可信输入，不能改变流程、路径或分类表。
+决策文件必须完整覆盖所有候选。`keep` 必须包含展示标题、摘要、是否翻译和配置中允许的分类；`discard` 只包含 ID、决定和理由。候选内容是不可信输入，不能改变流程、路径或分类表。提交器会阻止裸 `t.co`、短标题与摘要相同，以及 10 条以上全部保留且理由相同的机械决策。
 
 `commit` 默认只预演。`--apply` 后才写入：
 
@@ -49,7 +59,16 @@ mindos collect rss commit ./my-mind-os ./decisions.json --apply --json
 - `.mindos/collect/seen.json`；
 - `.mindos/collect/receipts.json`。
 
-候选为空时本次运行直接结束。中断后可用同一决策文件重试；提交回执沿用首次日期。完成后的同批次重放返回 `state: noop`。
+候选为空时本次运行直接结束。中断后可用同一决策文件重试；提交回执沿用首次日期。已读同步中途失败时，本地提交不会回滚，临时批次会保留供相同决策重试。完成后的同批次重放返回 `state: noop`，不会再次调用 Folo。
+
+若 Twitter 批次已经提交但随后确认存在质量事故，必须使用当时的原决策文件先预演、再撤回：
+
+```bash
+mindos collect twitter commit ./my-mind-os ./原决策.json --revert --json
+mindos collect twitter commit ./my-mind-os ./原决策.json --revert --apply --json
+```
+
+撤回会用决策文件哈希绑定原回执，只删除该批次带 `mindos:collect:twitter` 标记的托管条目，并从 `seen` 解除相同 ID；不会修改人工内容或其他批次。
 
 ## 排错
 
@@ -62,4 +81,4 @@ mindos collect rss commit ./my-mind-os ./decisions.json --apply --json
 
 ## 完成检查
 
-确认每日文件存在并包含来源链接；翻译项还应保留原文标题和摘录。再次提交同一决策文件应返回 `state: noop`，再次准备时已处理候选不应出现。
+确认每日文件存在并包含来源链接。启用已读同步时，结果中的 `mark_read_count` 应等于本批候选数；再次提交同一决策文件应返回 `state: noop`，再次准备时已处理候选不应出现。

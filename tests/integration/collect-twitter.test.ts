@@ -27,8 +27,8 @@ test("Twitter 完成 prepare、校验、preview、apply 与 replay", async (cont
   assert.equal(run(["wiki", "init", other, "--apply", "--json"], env).state, "applied");
   const prepared = run(["collect", "twitter", "prepare", vault, "--json"], env); assert.equal(prepared.state, "needs_agent");
   assert.deepEqual((await readFile(invocations, "utf8")).trim().split("\n").map((line): unknown => JSON.parse(line) as unknown), [
-    ["twitter", "timeline", "--type", "for-you", "--limit", "50", "-f", "json"],
-    ["twitter", "timeline", "--type", "following", "--limit", "50", "-f", "json"],
+    ["twitter", "timeline", "--type", "for-you", "--limit", "50", "--window", "background", "-f", "json"],
+    ["twitter", "timeline", "--type", "following", "--limit", "50", "--window", "background", "-f", "json"],
   ]);
   const path = join(root, "decisions.json"); const input = decision(prepared);
   await writeFile(path, JSON.stringify({ ...input, decisions: [{ id: "one", decision: "keep" }] }));
@@ -75,4 +75,71 @@ test("Twitter 来源 URL 不能注入第二个 Markdown 资源", async (context)
   assert.deepEqual(authorLines, ["   — [@author](<https://example.test/a%20b%3Cc%3E%29!%5Btracking%5D%28https://tracker.test/pixel>)"]);
   assert.equal(daily.includes("![tracking]"), false);
   assert.equal(daily.match(/\]\(/gu)?.length, 1);
+});
+
+test("Twitter 阻止机械保留与无信息短链进入简报", async (context) => {
+  const root = await mkdtemp(join(tmpdir(), "mindos-twitter-quality-")); context.after(async () => rm(root, { recursive: true, force: true }));
+  const bin = join(root, "bin"); const vault = join(root, "vault"); await mkdir(bin);
+  const executable = join(bin, "opencli");
+  const records = Array.from({ length: 10 }, (_, index) => ({
+    id: `quality-${index}`,
+    title: index === 0 ? "https://t.co/AbCdEf1234" : `候选 ${index}`,
+    text: index === 0 ? "https://t.co/AbCdEf1234" : `包含可核验细节的候选正文 ${index}`,
+    url: `https://x.com/tester/status/${index}`,
+    author: "tester",
+  }));
+  await writeFile(executable, `#!/usr/bin/env node\nprocess.stdout.write(JSON.stringify({records:${JSON.stringify(records)}}))\n`);
+  await chmod(executable, 0o700); const env = { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}` };
+  assert.equal(run(["wiki", "init", vault, "--apply", "--json"], env).state, "applied");
+  const prepared = run(["collect", "twitter", "prepare", vault, "--json"], env);
+  const path = join(root, "decisions.json");
+  const candidates = prepared.data.candidates as Array<{ id: string }>;
+
+  await writeFile(path, JSON.stringify({
+    version: "v1",
+    batch_id: prepared.data.batch_id,
+    baseline_hash: prepared.data.baseline_hash,
+    decisions: candidates.map((candidate, index) => index === 0
+      ? { id: candidate.id, decision: "keep", reason: "值得保留", display_title: "https://t.co/AbCdEf1234", display_summary: "https://t.co/AbCdEf1234", translated: false, category: "agent-systems" }
+      : { id: candidate.id, decision: "discard", reason: "与主题无关" }),
+  }));
+  assert.equal(run(["collect", "twitter", "commit", vault, path, "--json"], env).error?.code, "mindos.input.invalid");
+
+  await writeFile(path, JSON.stringify({
+    version: "v1",
+    batch_id: prepared.data.batch_id,
+    baseline_hash: prepared.data.baseline_hash,
+    decisions: candidates.map((candidate, index) => ({
+      id: candidate.id,
+      decision: "keep",
+      reason: "符合每日简报主题",
+      display_title: `有效标题 ${index}`,
+      display_summary: `包含独立摘要和可核验事实 ${index}`,
+      translated: false,
+      category: "agent-systems",
+    })),
+  }));
+  assert.equal(run(["collect", "twitter", "commit", vault, path, "--json"], env).error?.code, "mindos.input.invalid");
+});
+
+test("Twitter 只能凭原决策文件撤回已提交托管批次", async (context) => {
+  const root = await mkdtemp(join(tmpdir(), "mindos-twitter-revert-")); context.after(async () => rm(root, { recursive: true, force: true }));
+  const bin = join(root, "bin"); const vault = join(root, "vault"); await mkdir(bin);
+  const executable = join(bin, "opencli");
+  await writeFile(executable, "#!/usr/bin/env node\nprocess.stdout.write(JSON.stringify({records:[{id:\"one\",title:\"Original\",text:\"details\",url:\"https://x.com/tester/status/1\",author:\"tester\"}]}))\n");
+  await chmod(executable, 0o700); const env = { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}` };
+  assert.equal(run(["wiki", "init", vault, "--apply", "--json"], env).state, "applied");
+  const prepared = run(["collect", "twitter", "prepare", vault, "--json"], env);
+  const path = join(root, "decisions.json"); await writeFile(path, JSON.stringify(decision(prepared)));
+  assert.equal(run(["collect", "twitter", "commit", vault, path, "--apply", "--json"], env).state, "applied");
+
+  assert.equal(run(["collect", "twitter", "commit", vault, path, "--revert", "--json"], env).state, "preview");
+  assert.equal(run(["collect", "twitter", "commit", vault, path, "--revert", "--apply", "--json"], env).state, "applied");
+  const date = new Date().toISOString().slice(0, 10);
+  const daily = await readFile(join(vault, "raw/twitter", `${date}-X精选信息简报.md`), "utf8");
+  assert.equal(daily.includes("mindos:collect:twitter:one"), false);
+  const seen = JSON.parse(await readFile(join(vault, ".mindos/collect/seen.json"), "utf8")) as { twitter?: Record<string, string> };
+  assert.equal(seen.twitter?.one, undefined);
+  assert.equal(run(["collect", "twitter", "commit", vault, path, "--revert", "--apply", "--json"], env).state, "noop");
+  assert.equal(run(["collect", "twitter", "prepare", vault, "--json"], env).data.candidate_count, 1);
 });

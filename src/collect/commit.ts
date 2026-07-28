@@ -6,11 +6,11 @@ import { atomicWrite, contentHash } from "../lib/write.js";
 import { batchFile, loadBatch } from "./batch.js";
 import type { Batch, Decision, Source } from "./model.js";
 
-type Phase = "reserved" | "output" | "seen" | "cursor" | "applied";
+type Phase = "reserved" | "output" | "seen" | "cursor" | "applied" | "reverted";
 type Receipt = { source: Source; decision_hash: string; date: string; target: string; phase: Phase; reserved_at: number; output_hash?: string };
 type JsonState = { value: Record<string, unknown>; hash: string | null };
 export type DecisionInput = { version: "v1"; batch_id: string; baseline_hash: string; decisions: Decision[] };
-export type CommitOptions = { apply: boolean; now?: number; afterPhase?: (phase: Phase) => void | Promise<void> };
+export type CommitOptions = { apply: boolean; revert?: boolean; now?: number; afterPhase?: (phase: Phase) => void | Promise<void>; afterCommit?: (batch: Batch) => void | Promise<void> };
 export type CommitOutcome = { changed: boolean; target?: string; data: Record<string, unknown>; artifacts: Array<{ kind: string; path: string }> };
 
 async function boundedRead(path: string, maxBytes: number): Promise<string> {
@@ -128,6 +128,16 @@ function validateDecisions(batch: Batch, input: DecisionInput): Map<string, Deci
     }
     decisions.set(decision.id, decision);
   }
+  const kept = [...decisions.values()].filter((decision) => decision.decision === "keep");
+  const bareShortlink = /^(?:[\s\p{Extended_Pictographic}\uFE0F]*)https:\/\/t\.co\/[A-Za-z0-9]+$/u;
+  for (const decision of kept) {
+    const title = decision.display_title?.trim() ?? ""; const summary = decision.display_summary?.trim() ?? "";
+    if (bareShortlink.test(title) || bareShortlink.test(summary) || (title === summary && title.length <= 40)) {
+      throw new MindosError("mindos.input.invalid", "collection decisions failed semantic quality checks");
+    }
+  }
+  const reasons = new Set(input.decisions.map((decision) => decision.reason.trim()));
+  if (batch.signals.length >= 10 && kept.length === batch.signals.length && reasons.size === 1) throw new MindosError("mindos.input.invalid", "collection decisions look mechanically generated");
   return decisions;
 }
 
@@ -178,6 +188,22 @@ function renderDaily(batch: Batch, decisions: Map<string, Decision>, date: strin
   return updateDailyMetadata(batch.source, output, now);
 }
 
+function removeTwitterManagedEntries(content: string, ids: Set<string>, now: number): string {
+  const lines = content.split("\n"); const kept: string[] = [];
+  for (let index = 0; index < lines.length;) {
+    const match = lines[index]?.match(/^<!-- mindos:collect:twitter:([\w.:-]+) -->$/u);
+    if (match?.[1] !== undefined && ids.has(match[1]) && /^\d+\. /u.test(lines[index + 1] ?? "") && /^ {3}— /u.test(lines[index + 2] ?? "")) {
+      index += lines[index + 3] === "" ? 4 : 3; continue;
+    }
+    kept.push(lines[index] ?? ""); index += 1;
+  }
+  let number = 0; const renumbered = kept.map((line) => {
+    if (line.startsWith("## ")) number = 0;
+    return /^\d+\. /u.test(line) ? line.replace(/^\d+\./u, `${String(number += 1)}.`) : line;
+  }).join("\n");
+  return updateDailyMetadata("twitter", renumbered, now);
+}
+
 async function setReceipt(root: string, state: JsonState, id: string, receipt: Receipt, phase: Phase, hook?: CommitOptions["afterPhase"]): Promise<void> {
   receipt.phase = phase; state.value[id] = receipt; await writeState(root, "receipts", state); await hook?.(phase);
 }
@@ -195,6 +221,26 @@ export async function commitCollection(root: string, source: Source, input: Deci
     if (receipt !== undefined && (receipt.source !== source || receipt.decision_hash !== decisionHash || now - receipt.reserved_at > 30 * 86_400_000)) {
       throw new MindosError("mindos.state.conflict", "collection receipt does not match this commit");
     }
+    if (options.revert === true) {
+      if (source !== "twitter") throw new MindosError("mindos.input.invalid", "only Twitter collection batches can be reverted");
+      if (receipt === undefined) throw new MindosError("mindos.state.conflict", "collection receipt is required to revert a batch");
+      if (receipt.phase === "reverted") return { changed: false, target: receipt.target, data: { batch_id: input.batch_id, replay: true }, artifacts: [] };
+      if (receipt.phase !== "applied") throw new MindosError("mindos.state.conflict", "only an applied collection batch can be reverted");
+      const daily = await readDaily(root, receipt.target); const ids = new Set(input.decisions.map((decision) => decision.id));
+      const rendered = removeTwitterManagedEntries(daily.content, ids, now); const outputChanged = rendered !== daily.content;
+      const seen = await readState(root, "seen"); const sourceSeen = typeof seen.value.twitter === "object" && seen.value.twitter !== null ? seen.value.twitter as Record<string, string> : {};
+      const removedSeen = [...ids].filter((id) => id in sourceSeen);
+      const data = { batch_id: input.batch_id, candidate_count: ids.size, reverted_entries: ids.size };
+      const artifacts = [...(outputChanged ? [{ kind: "daily_digest", path: receipt.target }] : []),
+        ...(removedSeen.length > 0 ? [{ kind: "state", path: ".mindos/collect/seen.json" }] : []),
+        { kind: "state", path: ".mindos/collect/receipts.json" }];
+      if (!options.apply) return { changed: outputChanged || removedSeen.length > 0, target: receipt.target, data, artifacts };
+      if (outputChanged) await atomicWrite(root, receipt.target, rendered, { expectedHash: daily.hash });
+      for (const id of removedSeen) delete sourceSeen[id];
+      if (removedSeen.length > 0) { seen.value.twitter = sourceSeen; await writeState(root, "seen", seen); }
+      receipt.output_hash = contentHash(Buffer.from(rendered, "utf8")); await setReceipt(root, receipts, input.batch_id, receipt, "reverted", options.afterPhase);
+      return { changed: outputChanged || removedSeen.length > 0, target: receipt.target, data, artifacts };
+    }
     if (receipt?.phase === "applied") return { changed: false, target: receipt.target, data: { batch_id: input.batch_id, replay: true }, artifacts: [] };
     const batch = await loadBatch(root, input.batch_id, source, receipt !== undefined, now); const decisions = validateDecisions(batch, input);
     const cursors = await readState(root, "cursors"); const currentCursor = typeof cursors.value[source] === "string" ? cursors.value[source] : null;
@@ -205,14 +251,21 @@ export async function commitCollection(root: string, source: Source, input: Deci
     const daily = await readDaily(root, target); const rendered = renderDaily(batch, decisions, date, daily.content, now);
     const outputChanged = rendered !== daily.content; const unseen = batch.signals.filter((signal) => !(signal.id in sourceSeen));
     const cursorChanged = batch.next_cursor !== null && currentCursor !== batch.next_cursor;
-    const data = { batch_id: batch.id, candidate_count: batch.signals.length, kept: [...decisions.values()].filter((item) => item.decision === "keep").length, discarded: [...decisions.values()].filter((item) => item.decision === "discard").length };
+    const markReadChanged = source === "rss" && batch.config.markReadAfterCommit === true && batch.signals.length > 0;
+    const data = {
+      batch_id: batch.id,
+      candidate_count: batch.signals.length,
+      kept: [...decisions.values()].filter((item) => item.decision === "keep").length,
+      discarded: [...decisions.values()].filter((item) => item.decision === "discard").length,
+      ...(source === "rss" ? { mark_read_count: batch.config.markReadAfterCommit === true ? batch.signals.length : 0 } : {}),
+    };
     const artifacts = [
       ...(outputChanged ? [{ kind: "daily_digest", path: target }] : []),
       ...(unseen.length > 0 ? [{ kind: "state", path: ".mindos/collect/seen.json" }] : []),
       ...(cursorChanged ? [{ kind: "state", path: ".mindos/collect/cursors.json" }] : []),
       { kind: "state", path: ".mindos/collect/receipts.json" },
     ];
-    if (!options.apply) return { changed: outputChanged || unseen.length > 0 || cursorChanged, target, data, artifacts };
+    if (!options.apply) return { changed: outputChanged || unseen.length > 0 || cursorChanged || markReadChanged, target, data, artifacts };
     if (!outputChanged && unseen.length === 0 && !cursorChanged && receipt === undefined) return { changed: false, target, data, artifacts: [] };
     const active = receipt ?? { source, decision_hash: decisionHash, date, target, phase: "reserved", reserved_at: now };
     if (receipt === undefined) await setReceipt(root, receipts, batch.id, active, "reserved", options.afterPhase);
@@ -222,9 +275,10 @@ export async function commitCollection(root: string, source: Source, input: Deci
     seen.value[source] = sourceSeen; await writeState(root, "seen", seen); await setReceipt(root, receipts, batch.id, active, "seen", options.afterPhase);
     if (batch.next_cursor !== null) { cursors.value[source] = batch.next_cursor; await writeState(root, "cursors", cursors); }
     await setReceipt(root, receipts, batch.id, active, "cursor", options.afterPhase);
+    await options.afterCommit?.(batch);
     await setReceipt(root, receipts, batch.id, active, "applied", options.afterPhase);
     await unlink(await batchFile(root, batch.id)).catch(() => undefined);
-    return { changed: outputChanged || unseen.length > 0 || cursorChanged, target, data, artifacts };
+    return { changed: outputChanged || unseen.length > 0 || cursorChanged || markReadChanged, target, data, artifacts };
   } finally { await lock.release(); }
 }
 

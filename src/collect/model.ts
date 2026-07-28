@@ -7,7 +7,7 @@ import { contentHash } from "../lib/write.js";
 export type Source = "twitter" | "rss";
 export type Signal = { id: string; title: string; content: string; url: string; author: string };
 export type Filters = { include: string[]; exclude: string[]; weights: Record<string, number>; minimum: number; limit: number };
-export type CollectConfig = { output: string; filename: string; categories: Record<string, string>; filters: Filters };
+export type CollectConfig = { output: string; filename: string; categories: Record<string, string>; filters: Filters; markReadAfterCommit?: boolean };
 export type Batch = {
   version: "v1"; id: string; vault: string; source: Source; created_at: number; baseline_hash: string;
   initial_cursor: string | null; next_cursor: string | null; signals: Signal[]; config: CollectConfig;
@@ -81,7 +81,11 @@ export async function loadCollectConfig(root: string, source: Source): Promise<C
   if (!Number.isFinite(minimum) || !Number.isInteger(limit) || limit < 0 || limit > 200 || Object.values(weights).some((value) => !Number.isFinite(value))) {
     throw new MindosError("mindos.input.invalid", "collection filters are invalid");
   }
-  return { output, filename, categories, filters: { include: strings(filter.include_any), exclude: strings(filter.exclude_any), weights, minimum, limit } };
+  if (source === "rss" && raw.mark_read_after_commit !== undefined && typeof raw.mark_read_after_commit !== "boolean") {
+    throw new MindosError("mindos.input.invalid", "RSS mark_read_after_commit must be boolean");
+  }
+  const markReadAfterCommit = source === "rss" && raw.mark_read_after_commit === true;
+  return { output, filename, categories, filters: { include: strings(filter.include_any), exclude: strings(filter.exclude_any), weights, minimum, limit }, markReadAfterCommit };
 }
 
 export function filterSignals(signals: Signal[], filters: Filters): { signals: Signal[]; rejected: Record<string, number> } {

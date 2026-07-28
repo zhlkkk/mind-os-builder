@@ -20,6 +20,7 @@ collect:
   rss:
     output_directory: raw/rss
     daily_filename: "{date}-Folo精选信息简报.md"
+    mark_read_after_commit: false
     filters:
       include_any: []
       exclude_any: []
