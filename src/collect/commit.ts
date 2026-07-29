@@ -6,9 +6,9 @@ import { atomicWrite, contentHash } from "../lib/write.js";
 import { batchFile, loadBatch } from "./batch.js";
 import type { Batch, Decision, Source } from "./model.js";
 
-type Phase = "reserved" | "output" | "seen" | "cursor" | "applied" | "reverted";
-type Receipt = { source: Source; decision_hash: string; date: string; target: string; phase: Phase; reserved_at: number; output_hash?: string };
-type JsonState = { value: Record<string, unknown>; hash: string | null };
+export type Phase = "reserved" | "output" | "seen" | "cursor" | "applied" | "reverted";
+export type Receipt = { source: Source; decision_hash: string; date: string; target: string; phase: Phase; reserved_at: number; output_hash?: string };
+export type JsonState = { value: Record<string, unknown>; hash: string | null };
 export type DecisionInput = { version: "v1"; batch_id: string; baseline_hash: string; decisions: Decision[] };
 export type CommitOptions = { apply: boolean; revert?: boolean; now?: number; afterPhase?: (phase: Phase) => void | Promise<void>; afterCommit?: (batch: Batch) => void | Promise<void> };
 export type CommitOutcome = { changed: boolean; target?: string; data: Record<string, unknown>; artifacts: Array<{ kind: string; path: string }> };
@@ -18,7 +18,7 @@ async function boundedRead(path: string, maxBytes: number): Promise<string> {
   return readFile(path, "utf8");
 }
 
-async function readState(root: string, name: string): Promise<JsonState> {
+export async function readState(root: string, name: string): Promise<JsonState> {
   const path = await resolveReadPath(root, `.mindos/collect/${name}.json`);
   try {
     const content = await boundedRead(path, 2 * 1024 * 1024);
@@ -204,7 +204,7 @@ function removeTwitterManagedEntries(content: string, ids: Set<string>, now: num
   return updateDailyMetadata("twitter", renumbered, now);
 }
 
-async function setReceipt(root: string, state: JsonState, id: string, receipt: Receipt, phase: Phase, hook?: CommitOptions["afterPhase"]): Promise<void> {
+export async function setReceipt(root: string, state: JsonState, id: string, receipt: Receipt, phase: Phase, hook?: CommitOptions["afterPhase"]): Promise<void> {
   receipt.phase = phase; state.value[id] = receipt; await writeState(root, "receipts", state); await hook?.(phase);
 }
 

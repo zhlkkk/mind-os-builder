@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
+import { unlink } from "node:fs/promises";
 import type { Command } from "commander";
 import { readJsonInput } from "../lib/input.js";
+import { acquireVaultLock } from "../lib/lock.js";
 import { MindosError } from "../lib/paths.js";
 import { appliedResult, blockedFromError, failedResult, needsAgentResult, noopResult, previewResult, type CliResult } from "../lib/result.js";
 import { batchHash, filterSignals, loadCollectConfig, type Batch, type Source } from "../collect/model.js";
-import { saveBatch, vaultKey } from "../collect/batch.js";
-import { collectionState, commitCollection, parseCollectionDecisions } from "../collect/commit.js";
+import { batchFile, loadBatch, saveBatch, vaultKey } from "../collect/batch.js";
+import { collectionState, commitCollection, parseCollectionDecisions, readState, setReceipt, type Receipt } from "../collect/commit.js";
 import { fetchRss, markRssRead } from "../collect/providers/folo.js";
 import { fetchTwitter } from "../collect/providers/opencli.js";
 
@@ -46,11 +48,36 @@ async function commit(root: string, source: Source, path: string, apply: boolean
   }
 }
 
+async function recoverRss(root: string, apply: boolean): Promise<CliResult> {
+  const lock = await acquireVaultLock(root, ".mindos/locks/collect-rss.lock");
+  try {
+    const receipts = await readState(root, "receipts");
+    const pending = Object.entries(receipts.value).filter(([, value]) => typeof value === "object" && value !== null
+      && (value as Partial<Receipt>).source === "rss" && (value as Partial<Receipt>).phase === "cursor");
+    const batches = await Promise.all(pending.map(([id]) => loadBatch(root, id, "rss", true)));
+    if (batches.some((batch) => batch.config.markReadAfterCommit !== true)) throw new MindosError("mindos.state.conflict", "RSS recovery batch does not require read sync");
+    const data = { pending_count: batches.length, batch_ids: batches.map((batch) => batch.id), mark_read_count: batches.reduce((sum, batch) => sum + batch.signals.length, 0) };
+    const artifacts = batches.length > 0 ? [{ kind: "state", path: ".mindos/collect/receipts.json" }] : [];
+    if (!apply) return batches.length > 0 ? previewResult(data, artifacts) : noopResult(data);
+    for (const [index, batch] of batches.entries()) {
+      await markRssRead(batch.signals.map((signal) => signal.id));
+      await setReceipt(root, receipts, batch.id, pending[index]![1] as Receipt, "applied");
+      await unlink(await batchFile(root, batch.id)).catch(() => undefined);
+    }
+    return batches.length > 0 ? appliedResult(data, artifacts) : noopResult(data);
+  } catch (error: unknown) {
+    return error instanceof MindosError && (error.code.startsWith("mindos.provider.") || error.code.startsWith("mindos.dependency."))
+      ? failedResult(error) : blockedFromError(error);
+  } finally { await lock.release(); }
+}
+
 export function registerCollectCommands(program: Command, emit: Emit): void {
   const collect = program.command("collect").description("OpenCLI/Folo 两阶段采集");
   for (const source of ["twitter", "rss"] as const) {
     const group = collect.command(source);
     group.command("prepare <vault>").option("--json", "输出版本化 JSON").action(async (vault: string) => emit(await prepare(vault, source)));
+    if (source === "rss") group.command("recover <vault>").option("--apply", "重试未完成的 Folo 已读同步")
+      .option("--json", "输出版本化 JSON").action(async (vault: string, options: { apply?: boolean }) => emit(await recoverRss(vault, options.apply === true)));
     group.command("commit <vault> <decisions>").option("--apply", "提交每日简报与状态")
       .option("--revert", "按原决策文件撤回已提交的 Twitter 托管批次").option("--json", "输出版本化 JSON")
       .action(async (vault: string, decisions: string, options: { apply?: boolean; revert?: boolean }) =>

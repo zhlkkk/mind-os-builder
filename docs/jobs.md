@@ -73,6 +73,6 @@ mindos jobs export distill \
 
 外部运行层需要：读取并验证 YAML；收集 inputs；按 argv 启动命令或让 Agent 使用 Skill；在写操作前取得授权；遵守 effects、并发和重试；消费 v1 CLI JSON。不要把 argv 连接成 shell 字符串，也不要自动追加 `--apply`。
 
-采集 Job 只运行 prepare；收到 `needs_agent` 后，运行层继续调用 Twitter/RSS Skill 生成决策，再独立 preview/apply commit。Distill 与 Radar 同理。Tech Research 是 Skill Job，因为能力探测、交叉核验和综合属于 Agent，不属于 CLI。
+采集 Job 只运行 prepare；收到 `needs_agent` 后，运行层继续调用 Twitter/RSS Skill 生成决策，再独立 preview/apply commit。RSS Skill 会在 prepare 前恢复尚未完成的 Folo 已读同步；恢复失败时必须停止本次采集。Distill 与 Radar 同理。Tech Research 是 Skill Job，因为能力探测、交叉核验和综合属于 Agent，不属于 CLI。
 
 当前六个 Job：Wiki lint、Twitter、RSS、Distill、Tech Radar 和 Tech Research。自带 Adapter 只解决配置形态转换；安装、运行状态、日志、通知和卸载仍由 cron、launchd、CI、桌面自动化或用户自己的 Agent 工具负责。

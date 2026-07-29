@@ -43,7 +43,7 @@ test("RSS 只通过 Folo CLI 使用同一两阶段契约", async (context) => {
   assert.equal(run(["collect", "rss", "prepare", vault, "--json"], env).data.candidate_count, 0);
 });
 
-test("RSS 已读同步失败后用同一批次重试并收敛", async (context) => {
+test("RSS 已读同步失败后无需决策文件即可恢复并收敛", async (context) => {
   const root = await mkdtemp(join(tmpdir(), "mindos-rss-read-retry-")); context.after(async () => rm(root, { recursive: true, force: true }));
   const bin = join(root, "bin"); const vault = join(root, "vault"); await mkdir(bin);
   const executable = join(bin, "folo"); const invocations = join(root, "folo-invocations.log"); const failMarker = join(root, "failed-once");
@@ -65,8 +65,11 @@ test("RSS 已读同步失败后用同一批次重试并收敛", async (context) 
     ],
   }));
   assert.equal(run(["collect", "rss", "commit", vault, decisions, "--apply", "--json"], env).state, "failed");
-  assert.equal(run(["collect", "rss", "commit", vault, decisions, "--apply", "--json"], env).state, "applied");
-  assert.equal(run(["collect", "rss", "commit", vault, decisions, "--apply", "--json"], env).state, "noop");
+  await rm(decisions);
+  const recovery = run(["collect", "rss", "recover", vault, "--json"], env);
+  assert.equal(recovery.state, "preview"); assert.equal(recovery.data.pending_count, 1); assert.equal(recovery.data.mark_read_count, 2);
+  assert.equal(run(["collect", "rss", "recover", vault, "--apply", "--json"], env).state, "applied");
+  assert.equal(run(["collect", "rss", "recover", vault, "--apply", "--json"], env).state, "noop");
   assert.deepEqual((await readFile(invocations, "utf8")).trim().split("\n").map((line): unknown => JSON.parse(line) as unknown), [
     ["timeline", "--view", "articles", "--limit", "50", "-f", "json"],
     ["entry", "mark-read", "one"],

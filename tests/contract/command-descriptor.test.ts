@@ -36,6 +36,7 @@ test("命令描述符发布分阶段命令和代理下一步", () => {
       "collect.twitter.prepare",
       "collect.twitter.commit",
       "collect.rss.prepare",
+      "collect.rss.recover",
       "collect.rss.commit",
       "distill.scan",
       "distill.commit",
@@ -67,6 +68,7 @@ test("命令描述符发布分阶段命令和代理下一步", () => {
     assert.ok(command.stable_errors.every((code) => code.startsWith("mindos.")));
   }
   assert.deepEqual(descriptor.commands.find((command) => command.name === "collect.rss.commit")?.effects, ["workspace.write", "network.write"]);
+  assert.deepEqual(descriptor.commands.find((command) => command.name === "collect.rss.recover")?.effects, ["workspace.write", "network.write"]);
   assert.deepEqual(descriptor.commands.find((command) => command.name === "collect.twitter.commit")?.effects, ["workspace.write"]);
 });
 
@@ -81,6 +83,9 @@ test("命令描述符拒绝未知字段和无效技能引用", () => {
     ["wiki.init", ".agents/skills/mind-os/SKILL.md"],
     ["collect.twitter.prepare", ".agents/skills/twitter-digest/SKILL.md"],
     ["collect.twitter.commit", ".agents/skills/twitter-digest/SKILL.md"],
+    ["collect.rss.prepare", ".agents/skills/rss-digest/SKILL.md"],
+    ["collect.rss.recover", ".agents/skills/rss-digest/SKILL.md"],
+    ["collect.rss.commit", ".agents/skills/rss-digest/SKILL.md"],
     ["distill.scan", ".agents/skills/distill/SKILL.md"],
     ["distill.commit", ".agents/skills/distill/SKILL.md"],
     ["radar.prepare", ".agents/skills/radar-review/SKILL.md"],

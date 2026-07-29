@@ -77,7 +77,7 @@ Hermes 使用用户级安装。六种宿主的路径和参数见 [`docs/getting-
 | 初始化、检查 Wiki | `mindos wiki init`、`mindos wiki lint` |
 | 查询、摄入知识 | `mindos wiki query`、`mindos wiki ingest` |
 | 初始化、检查 Book Base | `mindos books init`、`mindos books validate` |
-| 采集 Twitter、RSS | `mindos collect twitter`、`mindos collect rss` |
+| 采集 Twitter、RSS | `mindos collect twitter`、`mindos collect rss`（RSS 已读恢复用 `recover`） |
 | 运行 Distill | `mindos distill scan`、`mindos distill commit` |
 | 提交研究、审阅雷达 | `mindos research commit`、`mindos radar prepare`、`mindos radar commit` |
 | 安装 Skills | `mindos skills install <host>` |

@@ -57,6 +57,8 @@ collect:
 
 配置只保存业务规则，不保存密钥、Token、Cookie、用户名或第三方 CLI 的认证文件。采集命令固定从 vault 配置读取，不接受另一份配置路径。
 
+已读同步失败不会回滚本地简报和 seen。下一次 RSS 任务必须先运行 `mindos collect rss recover <vault> --json`；存在未完成批次时，再在已授权任务中追加 `--apply`。恢复只使用受保护的临时批次，不依赖原决策文件。
+
 ## Agent 与提示词边界
 
 Twitter 使用 `.agents/skills/twitter-digest/`，RSS 使用 `.agents/skills/rss-digest/`。每个 Skill 将筛选、翻译摘要、分类和决策组装拆成独立提示词。宿主可以是 Claude Code、Codex、Pi、Hermes、OpenClaw 或 WorkBuddy；CLI 契约不依赖具体宿主或模型。

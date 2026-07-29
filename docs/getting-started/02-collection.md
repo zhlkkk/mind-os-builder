@@ -29,12 +29,13 @@ mindos collect twitter commit ./my-mind-os ./decisions.json --apply --json
 RSS 的步骤完全相同，但由 Folo 维护订阅和抓取：
 
 ```bash
+mindos collect rss recover ./my-mind-os --json
 mindos collect rss prepare ./my-mind-os --json
 mindos collect rss commit ./my-mind-os ./decisions.json --json
 mindos collect rss commit ./my-mind-os ./decisions.json --apply --json
 ```
 
-让宿主 Agent 使用 `.agents/skills/rss-digest/SKILL.md` 生成决策。项目不接受 feed URL，也不在配置中选择其他 RSS Provider。
+每次运行先执行 `recover`。它会检查上次已完成本地提交、但尚未完成 Folo 已读同步的批次；返回 `preview` 时，在已授权任务中用 `--apply` 恢复，确认重放为 `noop` 后再 `prepare`。让宿主 Agent 使用 `.agents/skills/rss-digest/SKILL.md` 生成决策。项目不接受 feed URL，也不在配置中选择其他 RSS Provider。
 
 如需在任务完成后同步 Folo 已读状态，在 vault 配置中显式开启：
 
@@ -59,7 +60,7 @@ collect:
 - `.mindos/collect/seen.json`；
 - `.mindos/collect/receipts.json`。
 
-候选为空时本次运行直接结束。中断后可用同一决策文件重试；提交回执沿用首次日期。已读同步中途失败时，本地提交不会回滚，临时批次会保留供相同决策重试。完成后的同批次重放返回 `state: noop`，不会再次调用 Folo。
+候选为空时本次运行直接结束。中断后可用同一决策文件重试；提交回执沿用首次日期。已读同步中途失败时，本地提交不会回滚，临时批次会保留；即使原决策文件已经删除，也可用 `collect rss recover` 继续。恢复完成后再次执行返回 `state: noop`，不会再次调用 Folo。
 
 若 Twitter 批次已经提交但随后确认存在质量事故，必须使用当时的原决策文件先预演、再撤回：
 
@@ -78,6 +79,7 @@ mindos collect twitter commit ./my-mind-os ./原决策.json --revert --apply --j
 - `mindos.input.invalid`：决策缺失、重复、字段越界或分类不在批次分类表中。
 - `mindos.state.batch_missing` / `mindos.state.batch_expired`：批次已丢失或超过 24 小时；重新 `prepare`。
 - `mindos.state.conflict`：批次、基线或提交回执不匹配；不要编辑临时批次，重新准备或使用原决策重试。
+- `recover` 返回 `failed`：Folo 已读同步仍不可用；修复网络或认证后重试同一命令，不要先运行新的 `prepare`。
 
 ## 完成检查
 
