@@ -11,6 +11,7 @@ const packageJson = JSON.parse(readFileSync(join(root, "package.json"), "utf8"))
   engines: Record<string, string>;
   files: string[];
   type: string;
+  version: string;
 };
 
 test("发布清单只包含公开运行时资源", () => {
@@ -39,7 +40,7 @@ test("构建后的命令行提供帮助和版本", () => {
   assert.equal(existsSync(cli), true, "请先构建 TypeScript CLI");
   assert.equal(readFileSync(cli, "utf8").startsWith("#!/usr/bin/env node\n"), true);
   assert.match(execFileSync(process.execPath, [cli, "--help"], { encoding: "utf8" }), /mindos/);
-  assert.match(execFileSync(process.execPath, [cli, "--version"], { encoding: "utf8" }), /^0\.1\.0/);
+  assert.equal(execFileSync(process.execPath, [cli, "--version"], { encoding: "utf8" }), `${packageJson.version}\n`);
 });
 
 test("能力清单指向实际静态命令契约", () => {

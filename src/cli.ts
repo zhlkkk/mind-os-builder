@@ -24,7 +24,7 @@ function emit(result: CliResult): void {
 const program = new Command()
   .name("mindos")
   .description("Mind OS 的 TypeScript 命令行入口")
-  .version("0.1.0");
+  .version("0.1.1");
 
 program.exitOverride();
 program.configureOutput({ writeErr: () => undefined });

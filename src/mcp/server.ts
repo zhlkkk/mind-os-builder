@@ -34,7 +34,7 @@ export async function serveMcp(vault: string): Promise<void> {
   try {
     modules = await Promise.all([import("@modelcontextprotocol/sdk/server/mcp.js"), import("@modelcontextprotocol/sdk/server/stdio.js"), import("zod")]);
   } catch { throw new MindosError("mindos.dependency.unavailable", "optional MCP dependency is not installed; reinstall without omitting optional dependencies"); }
-  const [{ McpServer }, { StdioServerTransport }, z] = modules; const server = new McpServer({ name: "mind-os-builder", version: "0.1.0" });
+  const [{ McpServer }, { StdioServerTransport }, z] = modules; const server = new McpServer({ name: "mind-os-builder", version: "0.1.1" });
   server.registerTool(MCP_TOOL_NAMES.lint, { description: "检查固定 vault 的 Wiki，不修改文件。" }, async () => output(await invoke(["wiki", "lint", root, "--json"])));
   server.registerTool(MCP_TOOL_NAMES.query, { description: "查询固定 vault 的已编译 Wiki。", inputSchema: { query: z.string().min(1).max(500), limit: z.number().int().min(1).max(50).default(10) } },
     async ({ query, limit }) => output(await invoke(["wiki", "query", root, query, "--limit", String(limit), "--json"])));

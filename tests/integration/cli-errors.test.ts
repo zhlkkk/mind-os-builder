@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
 const cli = join(process.cwd(), "lib", "src", "cli.js");
+const packageVersion = (JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as { version: string }).version;
 
 test("命令解析错误只返回 v1 JSON", () => {
   for (const arguments_ of [["unknown"], ["wiki", "init"]]) {
@@ -23,6 +25,7 @@ test("帮助和版本保持人类可读且成功退出", () => {
     const completed = spawnSync(process.execPath, [cli, argument], { encoding: "utf8" });
     assert.equal(completed.status, 0);
     assert.equal(completed.stderr, "");
-    assert.match(completed.stdout, /mindos|0\.1\.0/u);
+    if (argument === "--version") assert.equal(completed.stdout, `${packageVersion}\n`);
+    else assert.match(completed.stdout, /mindos/u);
   }
 });
