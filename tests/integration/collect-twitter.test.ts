@@ -11,6 +11,10 @@ const run = (args: string[], env = process.env): Result => {
   const result = spawnSync(process.execPath, [cli, ...args], { encoding: "utf8", env });
   assert.equal(result.stderr, ""); assert.notEqual(result.stdout, ""); return JSON.parse(result.stdout) as Result;
 };
+const currentLocalDate = (): string => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+};
 const decision = (batch: Result) => ({
   version: "v1", batch_id: batch.data.batch_id, baseline_hash: batch.data.baseline_hash,
   decisions: [{ id: "one", decision: "keep", reason: "一手实现", display_title: "Agent 基准", display_summary: "公开了测试方法与结果。", translated: true, category: "agent-systems", tags: ["agent"] }],
@@ -40,7 +44,7 @@ test("Twitter 完成 prepare、校验、preview、apply 与 replay", async (cont
   assert.equal(run(["collect", "twitter", "commit", other, path, "--json"], env).error?.code, "mindos.state.batch_missing");
   assert.equal(run(["collect", "twitter", "commit", vault, path, "--json"], env).state, "preview");
   const applied = run(["collect", "twitter", "commit", vault, path, "--apply", "--json"], env); assert.equal(applied.state, "applied");
-  const date = new Date().toISOString().slice(0, 10); const daily = await readFile(join(vault, "raw/twitter", `${date}-X精选信息简报.md`), "utf8");
+  const date = currentLocalDate(); const daily = await readFile(join(vault, "raw/twitter", `${date}-X精选信息简报.md`), "utf8");
   assert.match(daily, /mindos:collect:twitter:one/u); assert.match(daily, /1\. \*\*Agent 基准\*\*：公开了测试方法与结果。/u);
   assert.match(daily, /— \[@tester\]\(<https:\/\/example\.test\/one>\)/u);
   assert.equal(daily.includes("- 来源："), false); assert.equal(daily.includes("### Agent 基准"), false);
@@ -69,7 +73,7 @@ test("Twitter 来源 URL 不能注入第二个 Markdown 资源", async (context)
   const path = join(root, "decisions.json"); await writeFile(path, JSON.stringify(decision(prepared)));
   assert.equal(run(["collect", "twitter", "commit", vault, path, "--apply", "--json"], env).state, "applied");
 
-  const date = new Date().toISOString().slice(0, 10);
+  const date = currentLocalDate();
   const daily = await readFile(join(vault, "raw/twitter", `${date}-X精选信息简报.md`), "utf8");
   const authorLines = daily.split("\n").filter((line) => line.includes("— [@"));
   assert.deepEqual(authorLines, ["   — [@author](<https://example.test/a%20b%3Cc%3E%29!%5Btracking%5D%28https://tracker.test/pixel>)"]);
@@ -135,7 +139,7 @@ test("Twitter 只能凭原决策文件撤回已提交托管批次", async (conte
 
   assert.equal(run(["collect", "twitter", "commit", vault, path, "--revert", "--json"], env).state, "preview");
   assert.equal(run(["collect", "twitter", "commit", vault, path, "--revert", "--apply", "--json"], env).state, "applied");
-  const date = new Date().toISOString().slice(0, 10);
+  const date = currentLocalDate();
   const daily = await readFile(join(vault, "raw/twitter", `${date}-X精选信息简报.md`), "utf8");
   assert.equal(daily.includes("mindos:collect:twitter:one"), false);
   const seen = JSON.parse(await readFile(join(vault, ".mindos/collect/seen.json"), "utf8")) as { twitter?: Record<string, string> };

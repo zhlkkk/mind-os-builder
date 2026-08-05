@@ -116,4 +116,4 @@ npm run test:u4
 
 真实账号可用性不属于离线测试保证；它由用户在自己的 Provider CLI 中验证。
 
-当前采集是“最新窗口”而不是历史分页：Twitter 每次顺序读取 For You 与 Following 各 50 条并按 ID 合并，RSS 每次读取 Folo articles 最新 50 条；跨小时去重由 `.mindos/collect/seen.json` 完成。
+Twitter 仍采用最新窗口：每次顺序读取 For You 与 Following 各 50 条并按 ID 合并。RSS 读取 Folo articles 未读视图，每页 50 条，沿 Folo 分页游标最多读取 10 页或 500 条，从而让历史未读积压重新进入候选；跨小时去重由 `.mindos/collect/seen.json` 完成。

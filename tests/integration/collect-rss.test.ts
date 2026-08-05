@@ -9,12 +9,16 @@ const cli = join(process.cwd(), "lib/src/cli.js");
 const run = (args: string[], env: NodeJS.ProcessEnv): { state: string; data: Record<string, unknown> } => {
   const result = spawnSync(process.execPath, [cli, ...args], { encoding: "utf8", env }); assert.equal(result.stderr, ""); return JSON.parse(result.stdout) as { state: string; data: Record<string, unknown> };
 };
+const currentLocalDate = (): string => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+};
 
 test("RSS 只通过 Folo CLI 使用同一两阶段契约", async (context) => {
   const root = await mkdtemp(join(tmpdir(), "mindos-rss-")); context.after(async () => rm(root, { recursive: true, force: true }));
   const bin = join(root, "bin"); const vault = join(root, "vault"); await mkdir(bin);
   const executable = join(bin, "folo"); const invocations = join(root, "folo-invocations.log"); await writeFile(invocations, "");
-  await writeFile(executable, `#!/usr/bin/env node\nconst fs=require("node:fs");const args=process.argv.slice(2);fs.appendFileSync(process.env.FOLO_INVOCATIONS,JSON.stringify(args)+"\\n");const timeline=["timeline","--view","articles","--limit","50","-f","json"];if(JSON.stringify(args)===JSON.stringify(timeline)){process.stdout.write(JSON.stringify({ok:true,data:{entries:[{feeds:{title:"Example Feed"},entries:{id:"feed-one",title:"",summary:"source details",description:"fallback title",url:"https://example.test/feed-one",author:"Article Author"}}],nextCursor:"rss-next"},error:null}));}else if(JSON.stringify(args)===JSON.stringify(["entry","mark-read","feed-one"])){process.stdout.write("{}");}else process.exit(2);\n`); await chmod(executable, 0o700);
+  await writeFile(executable, `#!/usr/bin/env node\nconst fs=require("node:fs");const args=process.argv.slice(2);fs.appendFileSync(process.env.FOLO_INVOCATIONS,JSON.stringify(args)+"\\n");const timeline=["timeline","--view","articles","--limit","50","--unread-only","-f","json"];if(JSON.stringify(args)===JSON.stringify(timeline)){process.stdout.write(JSON.stringify({ok:true,data:{entries:[{feeds:{title:"Example Feed"},entries:{id:"feed-one",title:"",summary:"source details",description:"fallback title",url:"https://example.test/feed-one",author:"Article Author"}}],nextCursor:"rss-next"},error:null}));}else if(JSON.stringify(args)===JSON.stringify(["entry","mark-read","feed-one"])){process.stdout.write("{}");}else process.exit(2);\n`); await chmod(executable, 0o700);
   const env: NodeJS.ProcessEnv = { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}`, FOLO_INVOCATIONS: invocations };
   assert.equal(run(["wiki", "init", vault, "--apply", "--json"], env).state, "applied");
   const configPath = join(vault, ".mindos/config.yaml"); const config = await readFile(configPath, "utf8");
@@ -26,15 +30,15 @@ test("RSS 只通过 Folo CLI 使用同一两阶段契约", async (context) => {
   const decisions = join(root, "rss.json"); await writeFile(decisions, JSON.stringify({ version: "v1", batch_id: batch.data.batch_id, baseline_hash: batch.data.baseline_hash, decisions: [{ id: "feed-one", decision: "keep", reason: "有来源", display_title: "版本发布", display_summary: "发布了实现细节。", translated: false, category: "developer-tools" }] }));
   assert.equal(run(["collect", "rss", "commit", vault, decisions, "--json"], env).state, "preview");
   assert.deepEqual((await readFile(invocations, "utf8")).trim().split("\n").map((line): unknown => JSON.parse(line) as unknown), [
-    ["timeline", "--view", "articles", "--limit", "50", "-f", "json"],
+    ["timeline", "--view", "articles", "--limit", "50", "--unread-only", "-f", "json"],
   ]);
   const applied = run(["collect", "rss", "commit", vault, decisions, "--apply", "--json"], env); assert.equal(applied.state, "applied");
   assert.equal(applied.data.mark_read_count, 1);
   assert.deepEqual((await readFile(invocations, "utf8")).trim().split("\n").map((line): unknown => JSON.parse(line) as unknown), [
-    ["timeline", "--view", "articles", "--limit", "50", "-f", "json"],
+    ["timeline", "--view", "articles", "--limit", "50", "--unread-only", "-f", "json"],
     ["entry", "mark-read", "feed-one"],
   ]);
-  const date = new Date().toISOString().slice(0, 10); const daily = await readFile(join(vault, "raw/rss", `${date}-Folo精选信息简报.md`), "utf8");
+  const date = currentLocalDate(); const daily = await readFile(join(vault, "raw/rss", `${date}-Folo精选信息简报.md`), "utf8");
   assert.match(daily, /<!-- mindos:collect:rss:feed-one -->\n1\. \*\*版本发布\*\*：发布了实现细节。\n {3}— \[Example Feed\]\(<https:\/\/example\.test\/feed-one>\) · Folo entry `feed-one`/u);
   assert.equal(daily.includes("### 版本发布"), false); assert.equal(daily.includes("- 来源："), false); assert.equal(daily.includes("- 标签："), false);
   const seen = JSON.parse(await readFile(join(vault, ".mindos/collect/seen.json"), "utf8")) as Record<string, unknown>;
@@ -71,10 +75,30 @@ test("RSS 已读同步失败后无需决策文件即可恢复并收敛", async (
   assert.equal(run(["collect", "rss", "recover", vault, "--apply", "--json"], env).state, "applied");
   assert.equal(run(["collect", "rss", "recover", vault, "--apply", "--json"], env).state, "noop");
   assert.deepEqual((await readFile(invocations, "utf8")).trim().split("\n").map((line): unknown => JSON.parse(line) as unknown), [
-    ["timeline", "--view", "articles", "--limit", "50", "-f", "json"],
+    ["timeline", "--view", "articles", "--limit", "50", "--unread-only", "-f", "json"],
     ["entry", "mark-read", "one"],
     ["entry", "mark-read", "two"],
     ["entry", "mark-read", "one"],
     ["entry", "mark-read", "two"],
+  ]);
+});
+
+test("RSS 沿未读分页跳过已处理窗口并返回历史候选", async (context) => {
+  const root = await mkdtemp(join(tmpdir(), "mindos-rss-unread-pages-")); context.after(async () => rm(root, { recursive: true, force: true }));
+  const bin = join(root, "bin"); const vault = join(root, "vault"); await mkdir(bin);
+  const executable = join(bin, "folo"); const invocations = join(root, "folo-invocations.log"); await writeFile(invocations, "");
+  await writeFile(executable, `#!/usr/bin/env node\nconst fs=require("node:fs");const args=process.argv.slice(2);fs.appendFileSync(process.env.FOLO_INVOCATIONS,JSON.stringify(args)+"\\n");const first=["timeline","--view","articles","--limit","50","--unread-only","-f","json"];const second=["timeline","--view","articles","--limit","50","--unread-only","--cursor","older","-f","json"];if(JSON.stringify(args)===JSON.stringify(first)){process.stdout.write(JSON.stringify({ok:true,data:{entries:[{feeds:{title:"Feed"},entries:{id:"seen-one",title:"Seen",summary:"seen",url:"https://example.test/seen"}}],nextCursor:"older",hasNext:true},error:null}));}else if(JSON.stringify(args)===JSON.stringify(second)){process.stdout.write(JSON.stringify({ok:true,data:{entries:[{feeds:{title:"Feed"},entries:{id:"unseen-two",title:"Unseen",summary:"unseen",url:"https://example.test/unseen"}}],nextCursor:null,hasNext:false},error:null}));}else process.exit(2);\n`);
+  await chmod(executable, 0o700);
+  const env: NodeJS.ProcessEnv = { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}`, FOLO_INVOCATIONS: invocations };
+  assert.equal(run(["wiki", "init", vault, "--apply", "--json"], env).state, "applied");
+  await mkdir(join(vault, ".mindos/collect"));
+  await writeFile(join(vault, ".mindos/collect/seen.json"), `${JSON.stringify({ rss: { "seen-one": "2026-07-31" } }, null, 2)}\n`);
+
+  const batch = run(["collect", "rss", "prepare", vault, "--json"], env);
+  assert.equal(batch.state, "needs_agent"); assert.equal(batch.data.candidate_count, 1);
+  assert.deepEqual((batch.data.candidates as Array<{ id: string }>).map((candidate) => candidate.id), ["unseen-two"]);
+  assert.deepEqual((await readFile(invocations, "utf8")).trim().split("\n").map((line): unknown => JSON.parse(line) as unknown), [
+    ["timeline", "--view", "articles", "--limit", "50", "--unread-only", "-f", "json"],
+    ["timeline", "--view", "articles", "--limit", "50", "--unread-only", "--cursor", "older", "-f", "json"],
   ]);
 });

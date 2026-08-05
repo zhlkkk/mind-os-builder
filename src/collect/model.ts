@@ -29,8 +29,8 @@ export function normalizeProvider(source: Source, value: unknown): { signals: Si
   }
   const signals = records.map((item): Signal => {
     const record = typeof item === "object" && item !== null ? item as Record<string, unknown> : {};
-    const title = text(record.title ?? record.text ?? record.content ?? record.summary, 4_000);
-    const content = text(record.text ?? record.content ?? record.summary, 64_000);
+    const title = text(record.title ?? record.text ?? record.content ?? record.summary, 32_000);
+    const content = text(record.text ?? record.content ?? record.summary, 128_000);
     const author = text(record.author, 1_000);
     const url = validateHttpUrl(scalar(record.url ?? record.link)).toString();
     const rawId = scalar(record.id ?? record.guid).trim();

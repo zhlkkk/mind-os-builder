@@ -36,7 +36,7 @@ async function writeState(root: string, name: string, state: JsonState): Promise
   state.hash = outcome.hash;
 }
 
-const inline = (value: string, limit = 4_000): string => value.slice(0, limit).replace(/[\r\n]+/gu, " ").replace(/([\\`*_[\]<>])/gu, "\\$1");
+const inline = (value: string, limit = 32_000): string => value.slice(0, limit).replace(/[\r\n]+/gu, " ").replace(/([\\`*_[\]<>])/gu, "\\$1");
 const markdownDestination = (value: string): string => `<${value.replace(/[()[\]<>\\\s]/gu, (character) =>
   [...Buffer.from(character, "utf8")].map((byte) => `%${byte.toString(16).toUpperCase().padStart(2, "0")}`).join(""))}>`;
 const marker = (source: Source, id: string): string => `<!-- mindos:collect:${source}:${id} -->`;
@@ -121,7 +121,7 @@ function validateDecisions(batch: Batch, input: DecisionInput): Map<string, Deci
       throw new MindosError("mindos.input.invalid", "collection decisions are invalid");
     }
     if (keep && (decision.display_title?.trim() === "" || (decision.display_title?.length ?? 0) > 500
-      || decision.display_summary?.trim() === "" || (decision.display_summary?.length ?? 0) > 4_000
+      || decision.display_summary?.trim() === "" || (decision.display_summary?.length ?? 0) > 32_000
       || decision.category === undefined || !(decision.category in batch.config.categories)
       || decision.tags?.some((tag) => tag.trim() === "" || tag.length > 80))) {
       throw new MindosError("mindos.input.invalid", "collection decision display fields are invalid");
@@ -246,7 +246,7 @@ export async function commitCollection(root: string, source: Source, input: Deci
     const cursors = await readState(root, "cursors"); const currentCursor = typeof cursors.value[source] === "string" ? cursors.value[source] : null;
     if (currentCursor !== batch.initial_cursor && currentCursor !== batch.next_cursor) throw new MindosError("mindos.state.conflict", "provider cursor changed after prepare");
     const seen = await readState(root, "seen"); const sourceSeen = typeof seen.value[source] === "object" && seen.value[source] !== null ? seen.value[source] as Record<string, string> : {};
-    const date = receipt?.date ?? new Date(now).toISOString().slice(0, 10);
+    const localNow = new Date(now); const date = receipt?.date ?? `${localNow.getFullYear()}-${String(localNow.getMonth() + 1).padStart(2, "0")}-${String(localNow.getDate()).padStart(2, "0")}`;
     const target = receipt?.target ?? `${batch.config.output}/${batch.config.filename.replace("{date}", date)}`;
     const daily = await readDaily(root, target); const rendered = renderDaily(batch, decisions, date, daily.content, now);
     const outputChanged = rendered !== daily.content; const unseen = batch.signals.filter((signal) => !(signal.id in sourceSeen));
