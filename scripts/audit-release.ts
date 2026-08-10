@@ -19,6 +19,16 @@ for (const file of files) {
   if (privatePath.test(content)) throw new Error(`发布源包含私人绝对路径：${file}`);
   if (credential.test(content)) throw new Error(`发布源包含疑似凭证：${file}`);
   if (file.startsWith("src/") && /(?:prompts?|提示词)[/\\]/iu.test(file)) throw new Error(`提示词进入生产源码：${file}`);
+  if (file.startsWith(".agents/skills/twitter-digest/") || file === "jobs/collect-twitter.yaml") {
+    const forbiddenTwitterRuntime = [
+      { pattern: /(?:^|[\s;|&])(?:python3?|uv)(?:\s|$)/u, label: "Python 命令" },
+      { pattern: /node\s+-e/u, label: "裸 Node eval" },
+      { pattern: /mindos-twitter-ego-browser/u, label: "固定 ego-browser 任务空间" },
+      { pattern: /\/tmp\/(?:decisions\.json|[^\s]*(?:audit|prepare)[^\s]*)/u, label: "无主临时文件" },
+      { pattern: /rm\s+-rf[^\n]*(?:\$\{?TMPDIR|\/tmp)/u, label: "宽泛临时目录删除" },
+    ];
+    for (const forbidden of forbiddenTwitterRuntime) if (forbidden.pattern.test(content)) throw new Error(`Twitter 生产契约包含${forbidden.label}：${file}`);
+  }
 }
 const pkg = JSON.parse(await readFile(join(root, "package.json"), "utf8")) as { files: string[] }; const packageFiles: string[] = [];
 async function addPackagePath(path: string): Promise<void> {

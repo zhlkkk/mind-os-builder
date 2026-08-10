@@ -29,9 +29,12 @@ npm run smoke
 
 ```bash
 MINDOS_RUN_LIVE=1 npm run test:live
+MINDOS_RUN_EGO_LIVE=1 npm run test:live
 ```
 
-运行前用户自行安装并认证 OpenCLI 与 Folo。Book Base 的只读真实校验还需设置 `MINDOS_LIVE_VAULT`。未显式启用时 live 测试跳过，不读取账号或已有 vault。
+运行前用户自行安装并认证 OpenCLI 与 Folo。ego-browser 真实烟测使用独立开关，并要求 ego lite 已继承可用的 X 登录态。Book Base 的只读真实校验还需设置 `MINDOS_LIVE_VAULT`。未显式启用时 live 测试跳过，不读取账号或已有 vault。
+
+Hermes 私有 ego-browser Job 的部署烟测必须与上述 Provider 测试分开：一次运行只创建一个随机任务空间并只执行一次实时 `prepare`；apply 后只重放原 decisions，再运行 `collect twitter audit`。只有重放与审计均为 `noop`、工作区已转换为 applied 时才允许成功哨兵。空批次在精确清理后静默结束；blocked、failed 或 applying 待恢复状态不得报告成功。
 
 ## 发布检查
 

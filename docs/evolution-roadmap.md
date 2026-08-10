@@ -7,7 +7,7 @@
 当前版本已经具备：
 
 - 从空目录初始化 Wiki 与 Book Base。
-- OpenCLI Twitter、Folo RSS 两阶段采集。
+- 默认 OpenCLI、显式 ego-browser 备用的 Twitter 两阶段采集，以及 Folo RSS 两阶段采集。
 - Distill 五角色、Tech Research、Tech Radar。
 - 六种 Agent 宿主的 Skill 安装示例。
 - 声明式 Jobs、可选 stdio MCP、合成数据驱动的完整离线流程。

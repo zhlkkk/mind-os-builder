@@ -11,12 +11,15 @@ async function isAvailable(command: string): Promise<boolean> {
 }
 
 export async function doctor(): Promise<CliResult> {
-  const [opencli, folo, obsidian] = await Promise.all([isAvailable("opencli"), isAvailable("folo"), isAvailable("obsidian")]);
+  const [opencli, egoBrowser, folo, obsidian] = await Promise.all([
+    isAvailable("opencli"), isAvailable("ego-browser"), isAvailable("folo"), isAvailable("obsidian"),
+  ]);
   return previewResult({
     node: { version: process.version, supported: process.versions.node.startsWith("24.") },
     platform: { name: process.platform, certified: process.platform === "darwin" },
     dependencies: {
       opencli: { available: opencli },
+      "ego-browser": { available: egoBrowser },
       folo: { available: folo },
       obsidian: { available: obsidian },
     },

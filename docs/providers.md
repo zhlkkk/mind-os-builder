@@ -7,11 +7,28 @@ Provider 从用户已经配置好的外部工具获取记录，不写 vault，�
 | 来源 | Provider | 前置命令 | 安装与认证责任 |
 |---|---|---|---|
 | Twitter | OpenCLI | `opencli twitter timeline --type for-you --limit 50 --window background -f json` 与 `--type following` | 用户 |
+| Twitter（显式备用） | ego-browser | `.agents/skills/twitter-digest/scripts/collect-ego-browser.sh <capture.json> <run-id>` | 用户 |
 | RSS | Folo CLI | `folo timeline --view articles --limit 50 -f json` | 用户 |
 
-项目不会自动安装或认证这两个工具，也不会保存它们的 Cookie、Token 或账号信息。RSS 完全依赖 Folo；没有内置 HTTP 抓取器、feed URL 参数、fixture Provider 或运行时 Provider 选择。
+项目不会自动安装或认证这些工具，也不会保存它们的 Cookie、Token 或账号信息。Twitter 默认且不会静默偏离 OpenCLI；ego-browser 只有在命令明确指定 `--provider ego-browser --input <capture.json>` 时才生效。RSS 完全依赖 Folo，且没有内置 HTTP 抓取器、feed URL 参数、fixture Provider 或运行时 Provider 选择。
 
-`mindos doctor --json` 只报告依赖是否可执行。实际使用前，应在同一终端环境中独立运行上表命令并完成外部工具自己的登录流程。
+`mindos doctor --json` 只报告依赖是否可执行。实际使用前，应在同一终端环境中独立运行上表命令并完成外部工具自己的登录流程。ego-browser 需要能继承已有 X 登录态，CLI 不读取或管理登录信息。
+
+ego-browser 备用路径由 Skill 负责浏览器采集，CLI 只摄入采集 JSON：
+
+```bash
+run_dir="$(.agents/skills/twitter-digest/scripts/manage-run-workspace.sh create ./my-mind-os)"
+run_id=${run_dir##*/run-}
+capture_file="$run_dir/capture.json"
+.agents/skills/twitter-digest/scripts/collect-ego-browser.sh "$capture_file" "$run_id"
+.agents/skills/twitter-digest/scripts/manage-run-workspace.sh transition "$run_dir" ./my-mind-os captured
+mindos collect twitter prepare ./my-mind-os \
+  --provider ego-browser --input "$capture_file" --json
+# 从 prepare JSON 取得 batch_id 后执行 bind；它会删除 capture。
+.agents/skills/twitter-digest/scripts/manage-run-workspace.sh bind "$run_dir" ./my-mind-os "$batch_id"
+```
+
+脚本按随机 run ID 使用独立任务空间，读取 For You 与 Following 各最多 50 条，过滤广告并按稳定推文 ID 合并；采集成功后只关闭本次空间。采集文件权限为 `0600`，不能放入 vault 或仓库。apply 前可用工作区助手精确清理；进入 applying 后保留原 decisions 供恢复和撤回，终态保留 30 天。X 的 DOM、滚动加载和展示翻译会变化，因此它是显式备用方案，不是 OpenCLI 的自动故障转移。
 
 ## 采集配置
 
@@ -108,7 +125,7 @@ CLI 不联网、不调用模型、不执行提示词，也不会覆盖同名不�
 
 ## 可重复验证
 
-自动测试用临时的同名可执行文件模拟 OpenCLI 和 Folo，不访问真实账号：
+自动测试用临时的同名可执行文件模拟 OpenCLI、ego-browser 和 Folo，不访问真实账号：
 
 ```bash
 npm run test:u4
@@ -116,4 +133,4 @@ npm run test:u4
 
 真实账号可用性不属于离线测试保证；它由用户在自己的 Provider CLI 中验证。
 
-Twitter 仍采用最新窗口：每次顺序读取 For You 与 Following 各 50 条并按 ID 合并。RSS 读取 Folo articles 未读视图，每页 50 条，沿 Folo 分页游标最多读取 10 页或 500 条，从而让历史未读积压重新进入候选；跨小时去重由 `.mindos/collect/seen.json` 完成。
+Twitter 仍采用最新窗口：默认 OpenCLI 或显式 ego-browser 路径每次顺序读取 For You 与 Following 各最多 50 条并按 ID 合并。RSS 读取 Folo articles 未读视图，每页 50 条，沿 Folo 分页游标最多读取 10 页或 500 条，从而让历史未读积压重新进入候选；跨小时去重由 `.mindos/collect/seen.json` 完成。

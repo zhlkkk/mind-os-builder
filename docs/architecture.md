@@ -18,7 +18,7 @@ MCP ────────────── 静态转发 ──┘
 | 边界 | 接口 | 适配器或实现 | 适合扩展什么 |
 |---|---|---|---|
 | 语义工作流 | `SKILL.md`、独立 prompts、结构化决策 Schema | 任意支持 Agent Skills 的宿主 | 新判断流程、角色、研究方法 |
-| 外部数据 | 固定 argv、规范化记录与稳定错误码 | OpenCLI、Folo CLI，后续显式 Provider | 新数据来源 |
+| 外部数据 | 固定 argv 或显式采集文件、规范化记录与稳定错误码 | OpenCLI、ego-browser Skill 脚本、Folo CLI | 新数据来源 |
 | 确定性提交 | `mindos ... prepare/commit --json` | TypeScript CLI 模块 | 校验、路径保护、锁、幂等写入 |
 | 可复用任务 | `jobs/*.yaml`、`jobs export` | cron、launchd、Agent 平台 | 调度提示、重试、并发策略与宿主配置转换 |
 | Agent 宿主 | 规范 Skill 与 CLI JSON | `adapters/<host>/` | 新宿主的发现路径与配置 |
@@ -29,7 +29,7 @@ MCP ────────────── 静态转发 ──┘
 
 ## 分阶段工作流
 
-- Twitter/RSS：Provider CLI → prepare → Agent 筛选、翻译、摘要、分类 → commit。
+- Twitter/RSS：Provider CLI 或 Skill 采集脚本 → prepare → Agent 筛选、翻译、摘要、分类 → commit。ego-browser 只在 Skill 中抓取，CLI 通过显式 JSON 输入摄入，不启动浏览器。
 - Distill：scan → 五角色 Agent 回复 → commit。
 - Radar：prepare → 人工 approve/reject → commit。
 - Tech Research：宿主工具取证与核验 → vault 外候选 Markdown → research commit。

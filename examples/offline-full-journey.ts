@@ -30,7 +30,7 @@ export async function runOfflineJourney(cli: string, vault: string, workspace: s
   for (const source of ["twitter", "rss"] as const) {
     const prepared = await run(cli, ["collect", source, "prepare", vault, "--json"], env); const candidates = prepared.data.candidates as Array<{ id: string; title: string }>;
     const category = Object.keys(prepared.data.categories as Record<string, string>)[0];
-    const decisions = { version: "v1", batch_id: prepared.data.batch_id, baseline_hash: prepared.data.baseline_hash, decisions: candidates.map((item) => ({ id: item.id, decision: "keep", reason: "合成一手资料", display_title: item.title, display_summary: "合成摘要。", translated: false, category })) };
+    const decisions = { version: "v1", batch_id: prepared.data.batch_id, baseline_hash: prepared.data.baseline_hash, decisions: candidates.map((item) => ({ id: item.id, decision: "keep", reason: "合成一手资料", display_title: source === "twitter" ? "智能体协议基准" : item.title, display_summary: "合成摘要。", translated: source === "twitter", category })) };
     const path = join(workspace, `${source}-decisions.json`); await writeFile(path, JSON.stringify(decisions)); await run(cli, ["collect", source, "commit", vault, path, "--apply", "--json"], env);
   }
   const journalRelative = "journals/2026-07-21.md"; const journal = join(vault, journalRelative); await writeFile(journal, "今天形成了一个判断。 #lumina\n\n下一步执行。 #vector\n");

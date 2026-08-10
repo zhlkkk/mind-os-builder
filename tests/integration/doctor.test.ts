@@ -18,7 +18,7 @@ test("mindos doctor --json 返回 v1 契约且不安装依赖", async () => {
   assert.equal(result.state, "preview");
   assert.equal(result.changed, false);
   assert.equal(typeof result.data.platform.certified, "boolean");
-  assert.deepEqual(Object.keys(result.data.dependencies).sort(), ["folo", "obsidian", "opencli"]);
+  assert.deepEqual(Object.keys(result.data.dependencies).sort(), ["ego-browser", "folo", "obsidian", "opencli"]);
 });
 
 test("mindos doctor 将超时和缺失 CLI 标为不可用", async () => {
@@ -35,6 +35,7 @@ test("mindos doctor 将超时和缺失 CLI 标为不可用", async () => {
     });
     const result = JSON.parse(stdout) as { data: { dependencies: Record<string, { available: boolean }> } };
     assert.equal(result.data.dependencies.opencli?.available, false, "超时 CLI 不可用");
+    assert.equal(result.data.dependencies["ego-browser"]?.available, false, "缺失的备用 Twitter CLI 不可用");
     assert.equal(result.data.dependencies.folo?.available, true, "正常关闭的 CLI 可用");
     assert.equal(result.data.dependencies.obsidian?.available, false, "缺失 CLI 不可用");
   } finally {

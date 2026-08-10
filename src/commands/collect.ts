@@ -4,20 +4,33 @@ import type { Command } from "commander";
 import { readJsonInput } from "../lib/input.js";
 import { acquireVaultLock } from "../lib/lock.js";
 import { MindosError } from "../lib/paths.js";
-import { appliedResult, blockedFromError, failedResult, needsAgentResult, noopResult, previewResult, type CliResult } from "../lib/result.js";
-import { batchHash, filterSignals, loadCollectConfig, type Batch, type Source } from "../collect/model.js";
+import { appliedResult, blockedFromError, blockedResult, failedResult, needsAgentResult, noopResult, previewResult, type CliResult } from "../lib/result.js";
+import { batchHash, filterSignals, loadCollectConfig, normalizeProvider, type Batch, type Source } from "../collect/model.js";
 import { batchFile, loadBatch, saveBatch, vaultKey } from "../collect/batch.js";
 import { collectionState, commitCollection, parseCollectionDecisions, readState, setReceipt, type Receipt } from "../collect/commit.js";
+import { auditTwitterTarget, TwitterQualityError } from "../collect/audit.js";
 import { fetchRss, markRssRead } from "../collect/providers/folo.js";
 import { fetchTwitter } from "../collect/providers/opencli.js";
 
 type Emit = (result: CliResult) => void;
+type PrepareOptions = { provider?: string; input?: string };
 
-async function prepare(root: string, source: Source): Promise<CliResult> {
+async function prepare(root: string, source: Source, options: PrepareOptions = {}): Promise<CliResult> {
   try {
     const config = await loadCollectConfig(root, source); const cursors = await collectionState(root, "cursors");
     const cursor = typeof cursors[source] === "string" ? cursors[source] : null;
-    const provider = source === "twitter" ? await fetchTwitter(cursor) : await fetchRss(cursor);
+    let provider: Awaited<ReturnType<typeof fetchTwitter>>;
+    if (source === "rss") {
+      provider = await fetchRss(cursor);
+    } else if ((options.provider ?? "opencli") === "opencli") {
+      if (options.input !== undefined) throw new MindosError("mindos.input.invalid", "OpenCLI provider does not accept an input file");
+      provider = await fetchTwitter(cursor);
+    } else if (options.provider === "ego-browser") {
+      if (options.input === undefined) throw new MindosError("mindos.input.invalid", "ego-browser provider requires an input file");
+      provider = normalizeProvider("twitter", await readJsonInput(options.input, { maxBytes: 1024 * 1024, maxDepth: 12 }));
+    } else {
+      throw new MindosError("mindos.input.invalid", "unknown Twitter provider");
+    }
     const seen = await collectionState(root, "seen"); const sourceSeen = typeof seen[source] === "object" && seen[source] !== null ? seen[source] as Record<string, unknown> : {};
     const unseen = provider.signals.filter((signal) => !(signal.id in sourceSeen)); const filtered = filterSignals(unseen, config.filters);
     const id = randomUUID().replaceAll("-", "");
@@ -43,9 +56,19 @@ async function commit(root: string, source: Source, path: string, apply: boolean
     if (!apply) return outcome.changed ? previewResult(outcome.data, outcome.artifacts) : noopResult(outcome.data);
     return outcome.changed ? appliedResult(outcome.data, outcome.artifacts) : noopResult(outcome.data);
   } catch (error: unknown) {
+    if (error instanceof TwitterQualityError) return blockedFromError(error, { quality: error.report });
     return error instanceof MindosError && (error.code.startsWith("mindos.provider.") || error.code.startsWith("mindos.dependency."))
       ? failedResult(error) : blockedFromError(error);
   }
+}
+
+async function auditTwitter(root: string, date: string | undefined): Promise<CliResult> {
+  try {
+    if (date === undefined || !/^\d{4}-\d{2}-\d{2}$/u.test(date)) throw new MindosError("mindos.input.invalid", "audit date must use YYYY-MM-DD");
+    const config = await loadCollectConfig(root, "twitter"); const target = `${config.output}/${config.filename.replace("{date}", date)}`;
+    const quality = await auditTwitterTarget(root, target);
+    return quality.valid ? noopResult({ target, quality }) : blockedResult("mindos.state.conflict", "Twitter daily digest failed quality audit", { target, quality });
+  } catch (error: unknown) { return blockedFromError(error); }
 }
 
 async function recoverRss(root: string, apply: boolean): Promise<CliResult> {
@@ -72,12 +95,16 @@ async function recoverRss(root: string, apply: boolean): Promise<CliResult> {
 }
 
 export function registerCollectCommands(program: Command, emit: Emit): void {
-  const collect = program.command("collect").description("OpenCLI/Folo 两阶段采集");
+  const collect = program.command("collect").description("Twitter/RSS 两阶段采集");
   for (const source of ["twitter", "rss"] as const) {
     const group = collect.command(source);
-    group.command("prepare <vault>").option("--json", "输出版本化 JSON").action(async (vault: string) => emit(await prepare(vault, source)));
+    const prepareCommand = group.command("prepare <vault>").option("--json", "输出版本化 JSON");
+    if (source === "twitter") prepareCommand.option("--provider <provider>", "Twitter Provider", "opencli").option("--input <path>", "ego-browser 采集 JSON 文件");
+    prepareCommand.action(async (vault: string, options: PrepareOptions) => emit(await prepare(vault, source, options)));
     if (source === "rss") group.command("recover <vault>").option("--apply", "重试未完成的 Folo 已读同步")
       .option("--json", "输出版本化 JSON").action(async (vault: string, options: { apply?: boolean }) => emit(await recoverRss(vault, options.apply === true)));
+    if (source === "twitter") group.command("audit <vault>").option("--date <date>", "要审计的本地日期 YYYY-MM-DD")
+      .option("--json", "输出版本化 JSON").action(async (vault: string, options: { date?: string }) => emit(await auditTwitter(vault, options.date)));
     group.command("commit <vault> <decisions>").option("--apply", "提交每日简报与状态")
       .option("--revert", "按原决策文件撤回已提交的 Twitter 托管批次").option("--json", "输出版本化 JSON")
       .action(async (vault: string, decisions: string, options: { apply?: boolean; revert?: boolean }) =>

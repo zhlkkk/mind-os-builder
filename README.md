@@ -111,7 +111,7 @@ CLI 和 Agent 宿主都直接读取顶层目录中的资源。npm 包发布同�
 
 - [`docs/architecture.md`](docs/architecture.md)：当前模块、接口和写入模型。
 - [`docs/directory-contract.md`](docs/directory-contract.md)：顶层目录为何就是公开接口。
-- [`docs/providers.md`](docs/providers.md)：OpenCLI、Folo 与研究工具的前置条件。
+- [`docs/providers.md`](docs/providers.md)：OpenCLI、ego-browser、Folo 与研究工具的前置条件。
 - [`docs/knowledge-applications.md`](docs/knowledge-applications.md)：基于知识库与知识图谱的内容流水线和应用模型。
 - [`docs/evolution-roadmap.md`](docs/evolution-roadmap.md)：扩展能力、分发形态和产品化路线。
 - [`docs/legacy-system.md`](docs/legacy-system.md)：旧体系保留了哪些方法、删除了哪些实现。
@@ -119,7 +119,7 @@ CLI 和 Agent 宿主都直接读取顶层目录中的资源。npm 包发布同�
 ## 核心边界
 
 - CLI 不调用模型；Agent 负责筛选、翻译、摘要、角色回复、研究综合和人工决定。
-- Twitter 只依赖用户预装的 OpenCLI；RSS 完全依赖用户预装的 Folo CLI，项目不自动安装或认证。RSS 可显式开启提交后的逐条已读同步，默认关闭。
+- Twitter 默认依赖用户预装的 OpenCLI；显式备用路径可使用已登录 X 的 ego-browser Skill 脚本。RSS 完全依赖用户预装的 Folo CLI。项目不自动安装或认证这些工具；RSS 可显式开启提交后的逐条已读同步，默认关闭。
 - Tech Research 使用宿主已有的 Web、MCP、插件或 CLI；Provider Key 不进入项目配置。
 - Job 只声明 argv 或 Skill；CLI 可生成 cron、launchd 或通用 Agent 配置，但不安装、不执行，也不提供调度器。
 - MCP 是可选本地 stdio 适配器，只静态转发四个 CLI 原语。
@@ -137,4 +137,4 @@ npm run audit:architecture
 npm run audit:release
 ```
 
-`npm run smoke` 使用合成 Provider 跑通完整离线流程。只有设置 `MINDOS_RUN_LIVE=1` 后，测试才会访问真实的 OpenCLI、Folo 和 Obsidian。
+`npm run smoke` 使用合成 Provider 跑通完整离线流程。只有设置 `MINDOS_RUN_LIVE=1` 后，测试才会访问真实的 OpenCLI、Folo 和 Obsidian；ego-browser 使用独立的 `MINDOS_RUN_EGO_LIVE=1` 开关。
