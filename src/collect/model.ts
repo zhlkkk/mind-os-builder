@@ -5,7 +5,7 @@ import { MindosError, resolveReadPath } from "../lib/paths.js";
 import { contentHash } from "../lib/write.js";
 
 export type Source = "twitter" | "rss";
-export type Signal = { id: string; title: string; content: string; url: string; author: string };
+export type Signal = { id: string; title: string; content: string; url: string; author: string; replies?: number; views?: number; retweets?: number; likes?: number };
 export type Filters = { include: string[]; exclude: string[]; weights: Record<string, number>; minimum: number; limit: number };
 export type CollectConfig = { output: string; filename: string; categories: Record<string, string>; filters: Filters; markReadAfterCommit?: boolean };
 export type Batch = {
@@ -19,7 +19,7 @@ export type Decision = {
 
 const defaults = { "agent-systems": "Agent 系统", "models-research": "模型与研究", "developer-tools": "开发工具", "products-practice": "产品与实践", other: "其他" };
 const scalar = (value: unknown): string => typeof value === "string" || typeof value === "number" ? String(value) : "";
-const text = (value: unknown, limit: number): string => validateMarkdown(scalar(value).trim(), limit);
+const text = (value: unknown, limit: number): string => validateMarkdown(scalar(value).trim(), limit); const engagementCount = (value: unknown): number | undefined => { if (value === undefined) return undefined; if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) throw new MindosError("mindos.provider.invalid_output", "provider engagement count is invalid"); return value; };
 
 export function normalizeProvider(source: Source, value: unknown): { signals: Signal[]; cursor: string | null } {
   const object = typeof value === "object" && value !== null ? value as Record<string, unknown> : {};
@@ -38,7 +38,7 @@ export function normalizeProvider(source: Source, value: unknown): { signals: Si
     if (!/^[\w.:-]{1,256}$/u.test(id) || title.length === 0) {
       throw new MindosError("mindos.provider.invalid_output", "provider signal is invalid");
     }
-    return { id, title, content, url, author };
+    if (source !== "twitter") return { id, title, content, url, author }; const replies = engagementCount(record.replies); const views = engagementCount(record.views); const retweets = engagementCount(record.retweets); const likes = engagementCount(record.likes); return { id, title, content, url, author, ...(replies === undefined ? {} : { replies }), ...(views === undefined ? {} : { views }), ...(retweets === undefined ? {} : { retweets }), ...(likes === undefined ? {} : { likes }) };
   });
   if (new Set(signals.map((signal) => signal.id)).size !== signals.length) {
     throw new MindosError("mindos.provider.invalid_output", "provider signal ids are duplicated");

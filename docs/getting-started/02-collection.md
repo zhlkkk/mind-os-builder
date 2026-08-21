@@ -18,7 +18,7 @@ Twitter 与 RSS 共用一套流程：外部 CLI 抓取记录，`mindos` 完成�
 mindos collect twitter prepare ./my-mind-os --json
 ```
 
-成功时返回 `state: needs_agent`，其 `data` 包含 `batch_id`、`baseline_hash`、`categories` 和 `candidates`。让当前宿主 Agent 按 `.agents/skills/twitter-digest/SKILL.md` 生成 `decisions.json`，随后先预演，再提交：
+成功时返回 `state: needs_agent`，其 `data` 包含 `batch_id`、`baseline_hash`、`categories` 和 `candidates`。Twitter 候选还会在 Provider 可用时包含 `replies`、`views`、`retweets`、`likes`；缺失字段表示没有采到，而不是零。让当前宿主 Agent 按 `.agents/skills/twitter-digest/SKILL.md` 生成 `decisions.json`，随后先预演，再提交：
 
 ```bash
 mindos collect twitter commit ./my-mind-os ./decisions.json --json

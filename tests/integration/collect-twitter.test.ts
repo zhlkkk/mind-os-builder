@@ -24,12 +24,16 @@ test("Twitter 完成 prepare、校验、preview、apply 与 replay", async (cont
   const root = await mkdtemp(join(tmpdir(), "mindos-twitter-")); context.after(async () => rm(root, { recursive: true, force: true }));
   const bin = join(root, "bin"); const vault = join(root, "vault"); const other = join(root, "other"); await mkdir(bin);
   const executable = join(bin, "opencli"); const invocations = join(root, "opencli-invocations.log"); await writeFile(invocations, "");
-  await writeFile(executable, `#!/usr/bin/env node\nrequire("node:fs").appendFileSync(process.env.OPENCLI_INVOCATIONS,JSON.stringify(process.argv.slice(2))+"\\n");process.stdout.write(JSON.stringify({records:[{id:"one",title:"Original",text:"details",url:"https://example.test/one",author:"tester"}]}))\n`);
+  await writeFile(executable, `#!/usr/bin/env node\nrequire("node:fs").appendFileSync(process.env.OPENCLI_INVOCATIONS,JSON.stringify(process.argv.slice(2))+"\\n");process.stdout.write(JSON.stringify({records:[{id:"one",title:"Original",text:"details",url:"https://example.test/one",author:"tester",replies:3,views:4000,retweets:5,likes:20}]}))\n`);
   await chmod(executable, 0o700); const env: NodeJS.ProcessEnv = { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}` };
   env.OPENCLI_INVOCATIONS = invocations;
   assert.equal(run(["wiki", "init", vault, "--apply", "--json"], env).state, "applied");
   assert.equal(run(["wiki", "init", other, "--apply", "--json"], env).state, "applied");
   const prepared = run(["collect", "twitter", "prepare", vault, "--json"], env); assert.equal(prepared.state, "needs_agent");
+  assert.deepEqual(prepared.data.candidates, [{
+    id: "one", title: "Original", content: "details", url: "https://example.test/one", author: "tester",
+    replies: 3, views: 4_000, retweets: 5, likes: 20,
+  }]);
   assert.deepEqual((await readFile(invocations, "utf8")).trim().split("\n").map((line): unknown => JSON.parse(line) as unknown), [
     ["twitter", "timeline", "--type", "for-you", "--limit", "50", "--window", "background", "-f", "json"],
     ["twitter", "timeline", "--type", "following", "--limit", "50", "--window", "background", "-f", "json"],
@@ -48,6 +52,7 @@ test("Twitter 完成 prepare、校验、preview、apply 与 replay", async (cont
   const date = currentLocalDate(); const daily = await readFile(join(vault, "raw/twitter", `${date}-X精选信息简报.md`), "utf8");
   assert.match(daily, /mindos:collect:twitter:one/u); assert.match(daily, /1\. \*\*Agent 基准\*\*：公开了测试方法与结果。/u);
   assert.match(daily, /— \[@tester\]\(<https:\/\/example\.test\/one>\)/u);
+  assert.match(daily, /互动：评论 3 · 浏览 4000 · 转发 5 · 点赞 20/u);
   assert.equal(daily.includes("- 来源："), false); assert.equal(daily.includes("### Agent 基准"), false);
   const audit = run(["collect", "twitter", "audit", vault, "--date", date, "--json"], env);
   assert.equal(audit.state, "noop"); assert.equal((audit.data.quality as { valid?: boolean }).valid, true);
@@ -95,7 +100,7 @@ test("Twitter 可显式使用 ego-browser 采集文件且默认仍为 OpenCLI", 
   assert.equal(run(["wiki", "init", vault, "--apply", "--json"]).state, "applied");
   await writeFile(capture, JSON.stringify({ records: [{
     id: "ego-one", title: "Browser capture", text: "Captured from the authenticated timeline.",
-    url: "https://x.com/tester/status/1", author: "tester",
+    url: "https://x.com/tester/status/1", author: "tester", replies: 2, views: 300, retweets: 4, likes: 10,
   }] }));
 
   const prepared = run(["collect", "twitter", "prepare", vault, "--provider", "ego-browser", "--input", capture, "--json"], { ...process.env, PATH: root });
@@ -103,7 +108,7 @@ test("Twitter 可显式使用 ego-browser 采集文件且默认仍为 OpenCLI", 
   assert.equal(prepared.data.candidate_count, 1);
   assert.deepEqual(prepared.data.candidates, [{
     id: "ego-one", title: "Browser capture", content: "Captured from the authenticated timeline.",
-    url: "https://x.com/tester/status/1", author: "tester",
+    url: "https://x.com/tester/status/1", author: "tester", replies: 2, views: 300, retweets: 4, likes: 10,
   }]);
 
   const defaultProvider = run(["collect", "twitter", "prepare", vault, "--json"], { ...process.env, PATH: root });
@@ -260,18 +265,20 @@ test("Twitter 只能凭原决策文件撤回已提交托管批次", async (conte
   const root = await mkdtemp(join(tmpdir(), "mindos-twitter-revert-")); context.after(async () => rm(root, { recursive: true, force: true }));
   const bin = join(root, "bin"); const vault = join(root, "vault"); await mkdir(bin);
   const executable = join(bin, "opencli");
-  await writeFile(executable, "#!/usr/bin/env node\nprocess.stdout.write(JSON.stringify({records:[{id:\"one\",title:\"Original\",text:\"details\",url:\"https://x.com/tester/status/1\",author:\"tester\"}]}))\n");
+  await writeFile(executable, "#!/usr/bin/env node\nprocess.stdout.write(JSON.stringify({records:[{id:\"one\",title:\"Original\",text:\"details\",url:\"https://x.com/tester/status/1\",author:\"tester\",replies:1,views:100,retweets:2,likes:3}]}))\n");
   await chmod(executable, 0o700); const env = { ...process.env, PATH: `${bin}:${process.env.PATH ?? ""}` };
   assert.equal(run(["wiki", "init", vault, "--apply", "--json"], env).state, "applied");
   const prepared = run(["collect", "twitter", "prepare", vault, "--json"], env);
   const path = join(root, "decisions.json"); await writeFile(path, JSON.stringify(decision(prepared)));
   assert.equal(run(["collect", "twitter", "commit", vault, path, "--apply", "--json"], env).state, "applied");
+  const date = currentLocalDate();
+  assert.match(await readFile(join(vault, "raw/twitter", `${date}-X精选信息简报.md`), "utf8"), /互动：评论 1 · 浏览 100 · 转发 2 · 点赞 3/u);
 
   assert.equal(run(["collect", "twitter", "commit", vault, path, "--revert", "--json"], env).state, "preview");
   assert.equal(run(["collect", "twitter", "commit", vault, path, "--revert", "--apply", "--json"], env).state, "applied");
-  const date = currentLocalDate();
   const daily = await readFile(join(vault, "raw/twitter", `${date}-X精选信息简报.md`), "utf8");
   assert.equal(daily.includes("mindos:collect:twitter:one"), false);
+  assert.equal(daily.includes("互动："), false);
   const seen = JSON.parse(await readFile(join(vault, ".mindos/collect/seen.json"), "utf8")) as { twitter?: Record<string, string> };
   assert.equal(seen.twitter?.one, undefined);
   assert.equal(run(["collect", "twitter", "commit", vault, path, "--revert", "--apply", "--json"], env).state, "noop");

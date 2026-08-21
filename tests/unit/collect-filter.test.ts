@@ -19,8 +19,29 @@ test("Provider 规范化、确定性过滤与数量上限保持独立", () => {
 });
 
 test("OpenCLI Twitter 条目可使用 text 作为标题", () => {
-  const normalized = normalizeProvider("twitter", [{ id: "tweet-1", author: "author", text: "只有正文的推文", url: "https://x.com/author/status/1" }]);
-  assert.deepEqual(normalized.signals, [{ id: "tweet-1", title: "只有正文的推文", content: "只有正文的推文", url: "https://x.com/author/status/1", author: "author" }]);
+  const normalized = normalizeProvider("twitter", [{
+    id: "tweet-1", author: "author", text: "只有正文的推文", url: "https://x.com/author/status/1",
+    replies: 3, views: 4_000, retweets: 5, likes: 20,
+  }]);
+  assert.deepEqual(normalized.signals, [{
+    id: "tweet-1", title: "只有正文的推文", content: "只有正文的推文", url: "https://x.com/author/status/1", author: "author",
+    replies: 3, views: 4_000, retweets: 5, likes: 20,
+  }]);
+});
+
+test("Twitter 互动数缺失时省略，非法时拒绝", () => {
+  const withoutMetrics = normalizeProvider("twitter", [{ id: "one", text: "正文", url: "https://x.com/author/status/1" }]);
+  assert.deepEqual(withoutMetrics.signals[0], { id: "one", title: "正文", content: "正文", url: "https://x.com/author/status/1", author: "" });
+  const withZero = normalizeProvider("twitter", [{ id: "zero", text: "正文", url: "https://x.com/author/status/2", likes: 0 }]);
+  assert.equal(withZero.signals[0]?.likes, 0);
+  for (const likes of [-1, 1.5, Number.MAX_SAFE_INTEGER + 1, "4"]) {
+    assert.throws(
+      () => normalizeProvider("twitter", [{ id: "one", text: "正文", url: "https://x.com/author/status/1", likes }]),
+      (error: unknown) => error instanceof MindosError && error.code === "mindos.provider.invalid_output",
+    );
+  }
+  const rss = normalizeProvider("rss", [{ id: "entry", title: "正文", url: "https://example.test/entry", likes: 4 }]);
+  assert.deepEqual(rss.signals[0], { id: "entry", title: "正文", content: "", url: "https://example.test/entry", author: "" });
 });
 
 test("每日文件模板不能逃逸采集目录", async (context) => {

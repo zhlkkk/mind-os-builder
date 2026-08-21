@@ -121,8 +121,8 @@ function renderDaily(batch: Batch, decisions: Map<string, Decision>, date: strin
     }
     let block = ""; let number = nextNumber(output, headingIndex, heading.length);
     for (const signal of grouped) {
-      const decision = decisions.get(signal.id) as Decision;
-      block += batch.source === "twitter" ? `\n${marker(batch.source, signal.id)}\n${number}. **${inline(decision.display_title ?? signal.title, 500)}**：${inline(decision.display_summary ?? "")}\n   — [@${inline(twitterAuthor(signal.url, signal.author), 80)}](${markdownDestination(signal.url)})\n` : `\n${marker(batch.source, signal.id)}\n${number}. **${inline(decision.display_title ?? signal.title, 500)}**：${inline(decision.display_summary ?? "")}\n   — [${inline(rssSource(signal.url, signal.author), 200)}](${markdownDestination(signal.url)}) · Folo entry \`${signal.id}\`\n`; number += 1;
+      const decision = decisions.get(signal.id) as Decision; const metrics = [["评论", signal.replies], ["浏览", signal.views], ["转发", signal.retweets], ["点赞", signal.likes]].filter((item): item is [string, number] => item[1] !== undefined);
+      block += batch.source === "twitter" ? `\n${marker(batch.source, signal.id)}\n${number}. **${inline(decision.display_title ?? signal.title, 500)}**：${inline(decision.display_summary ?? "")}\n   — [@${inline(twitterAuthor(signal.url, signal.author), 80)}](${markdownDestination(signal.url)})${metrics.length === 0 ? "" : `\n   · 互动：${metrics.map(([label, count]) => `${label} ${count}`).join(" · ")}`}\n` : `\n${marker(batch.source, signal.id)}\n${number}. **${inline(decision.display_title ?? signal.title, 500)}**：${inline(decision.display_summary ?? "")}\n   — [${inline(rssSource(signal.url, signal.author), 200)}](${markdownDestination(signal.url)}) · Folo entry \`${signal.id}\`\n`; number += 1;
     }
     const nextHeading = output.indexOf("\n## ", headingIndex + heading.length); const insertion = nextHeading < 0 ? output.length : nextHeading;
     output = `${output.slice(0, insertion).trimEnd()}\n${block}${output.slice(insertion)}`;
@@ -134,7 +134,7 @@ function removeTwitterManagedEntries(content: string, ids: Set<string>, now: num
   const lines = content.split("\n"); const kept: string[] = [];
   for (let index = 0; index < lines.length;) {
     const match = lines[index]?.match(/^<!-- mindos:collect:twitter:([\w.:-]+) -->$/u);
-    if (match?.[1] !== undefined && ids.has(match[1]) && /^\d+\. /u.test(lines[index + 1] ?? "") && /^ {3}— /u.test(lines[index + 2] ?? "")) { index += lines[index + 3] === "" ? 4 : 3; continue; }
+    if (match?.[1] !== undefined && ids.has(match[1]) && /^\d+\. /u.test(lines[index + 1] ?? "") && /^ {3}— /u.test(lines[index + 2] ?? "")) { index += 3; if (/^ {3}· 互动：/u.test(lines[index] ?? "")) index += 1; if (lines[index] === "") index += 1; continue; }
     kept.push(lines[index] ?? ""); index += 1;
   }
   let number = 0; const renumbered = kept.map((line) => { if (line.startsWith("## ")) number = 0; return /^\d+\. /u.test(line) ? line.replace(/^\d+\./u, `${String(number += 1)}.`) : line; }).join("\n");

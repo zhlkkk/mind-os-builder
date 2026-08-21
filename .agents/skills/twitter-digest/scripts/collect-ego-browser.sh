@@ -113,12 +113,24 @@ const extractVisible = async () => await js(String.raw`(() => [...document.query
     .map(image => image.alt.trim())
     .filter(Boolean)
     .join('\n')
+  const metricCount = selector => {
+    const element = article.querySelector(selector)
+    const label = (element?.getAttribute('aria-label') || element?.innerText || '').replaceAll(',', '').trim()
+    const match = label.match(/(\d+(?:\.\d+)?)\s*([KMB万亿]?)/iu)
+    if (!match) return undefined
+    const multiplier = ({ K: 1e3, M: 1e6, B: 1e9, '万': 1e4, '亿': 1e8 })[match[2].toUpperCase()] || 1
+    return Math.round(Number(match[1]) * multiplier)
+  }
   return {
     id: match?.[2] || '',
     title: text || mediaText,
     text: text || mediaText,
     url: match ? 'https://x.com/' + match[1] + '/status/' + match[2] : '',
     author: match?.[1] || '',
+    replies: metricCount('[data-testid="reply"]'),
+    views: metricCount('[data-testid="analytics"], a[href*="/analytics"]'),
+    retweets: metricCount('[data-testid="retweet"], [data-testid="unretweet"]'),
+    likes: metricCount('[data-testid="like"], [data-testid="unlike"]'),
     promoted: /(^|\n)(广告|推广|Ad|Promoted)(\n|$)/iu.test(article.innerText)
   }
 }))()`)
@@ -171,7 +183,7 @@ for (const record of await collectTimeline(['为你推荐', 'For you'])) records
 for (const record of await collectTimeline(['正在关注', 'Following'])) records.set(record.id, records.get(record.id) ?? record)
 if (records.size === 0) throw new Error('ego-browser 没有采集到可用的 Twitter 记录')
 
-const output = [...records.values()].map(({ id, title, text, url, author }) => ({ id, title, text, url, author }))
+const output = [...records.values()].map(({ id, title, text, url, author, replies, views, retweets, likes }) => ({ id, title, text, url, author, replies, views, retweets, likes }))
 cliLog(JSON.stringify({ records: output }))
 EOF
 } | ego-browser nodejs >/dev/null 2>"$capture_tmp"

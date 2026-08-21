@@ -37,7 +37,7 @@ input="$(/bin/cat)"
 task="$(printf '%s' "$input" | /usr/bin/sed -n "s/^const name = '\\([^']*\\)'.*/\\1/p" | /usr/bin/head -n 1)"
 case "$input" in
   *completeTaskSpace*) printf 'complete:%s\\n' "$task" >> "$EGO_INVOCATIONS" ;;
-  *) printf 'collect:%s\\n' "$task" >> "$EGO_INVOCATIONS"; printf '{"records":[{"id":"ego-one","title":"Browser capture","text":"Captured timeline item.","url":"https://x.com/tester/status/1","author":"tester"}]}\\n' >&2 ;;
+  *) printf 'collect:%s\\n' "$task" >> "$EGO_INVOCATIONS"; printf '{"records":[{"id":"ego-one","title":"Browser capture","text":"Captured timeline item.","url":"https://x.com/tester/status/1","author":"tester","replies":2,"views":300,"retweets":4,"likes":10}]}\\n' >&2 ;;
 esac
 `, { mode: 0o700 });
 
@@ -50,7 +50,7 @@ esac
 
   assert.deepEqual(JSON.parse(await readFile(output, "utf8")), { records: [{
     id: "ego-one", title: "Browser capture", text: "Captured timeline item.",
-    url: "https://x.com/tester/status/1", author: "tester",
+    url: "https://x.com/tester/status/1", author: "tester", replies: 2, views: 300, retweets: 4, likes: 10,
   }] });
   assert.equal((await stat(output)).mode & 0o777, 0o600);
   assert.equal(await readFile(invocations, "utf8"), `collect:mindos-twitter-${runId}\ncomplete:mindos-twitter-${runId}\n`);
@@ -206,6 +206,8 @@ test("Twitter 公开 Job 保持 OpenCLI，显式 ego-browser 终态只采集一�
   assert.match(skill, /不得用重定向、tee 或临时文件保存/u);
   assert.doesNotMatch(collector, /node\s+-e|mindos-twitter-ego-browser|python/iu);
   assert.match(collector, /const name = 'mindos-twitter-%s'/u);
+  for (const field of ["replies", "views", "retweets", "likes"]) assert.match(collector, new RegExp(field));
+  for (const selector of ["reply", "analytics", "retweet", "unretweet", "like", "unlike"]) assert.match(collector, new RegExp(`data-testid=\\"${selector}\\"`));
   assert.match(collector, /时间线滚动停滞/u);
   assert.match(collector, /naturalEnd >= 3/u);
   assert.match(collector, /scrollState\.atBottom/u);
